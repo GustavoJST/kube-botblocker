@@ -39,6 +39,7 @@ import (
 
 	kubebotblockergithubiov1alpha1 "github.com/GustavoJST/kube-botblocker/api/v1alpha1"
 	"github.com/GustavoJST/kube-botblocker/internal/controller"
+	"github.com/GustavoJST/kube-botblocker/pkg/environment"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -178,6 +179,12 @@ func main() {
 		})
 	}
 
+	env, err := environment.GetOperatorEnv()
+	if err != nil {
+		setupLog.Error(err, "Error getting environment")
+		os.Exit(1)
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
@@ -205,6 +212,7 @@ func main() {
 	if err = (&controller.IngressReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Environment: env,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Ingress")
 		os.Exit(1)

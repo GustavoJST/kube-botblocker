@@ -23,12 +23,14 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"github.com/GustavoJST/kube-botblocker/pkg/environment"
 )
 
 // IngressReconciler reconciles a Ingress object
 type IngressReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	Environment *environment.OperatorEnv
 }
 
 // +kubebuilder:rbac:groups=kube-botblocker.github.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
