@@ -28,8 +28,8 @@ type IngressConfigSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of IngressConfig. Edit ingressconfig_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// Config to be added to each ingress in the server-snippet annotation
+	BlockedUserAgents []string `json:"blockedUserAgents"`
 }
 
 // IngressConfigStatus defines the observed state of IngressConfig.
