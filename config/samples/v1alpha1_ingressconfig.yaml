@@ -6,4 +6,50 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: ingressconfig-sample
 spec:
-  # TODO(user): Add fields here
+  blockedUserAgents:
+    - AI2Bot
+    - GoogleBot
+    - AI2Bot
+    - Ai2Bot-Dolma
+    - Amazonbot
+    - anthropic-ai
+    - Applebot
+    - Applebot-Extended
+    - Bytespider
+    - CCBot
+    - ChatGPT-User
+    - Claude-Web
+    - ClaudeBot
+    - cohere-ai
+    - Diffbot
+    - DuckAssistBot
+    - FacebookBot
+    - facebookexternalhit
+    - FriendlyCrawler
+    - Google-Extended
+    - GoogleOther
+    - GoogleOther-Image
+    - GoogleOther-Video
+    - GPTBot
+    - iaskspider/2.0
+    - ICCCrawler
+    - ImagesiftBot
+    - img2dataset
+    - ISSCyberRiskCrawler
+    - KangarooBot
+    - Meta-ExternalAgent
+    - Meta-ExternalFetcher
+    - OAI-SearchBot
+    - omgili
+    - omgilibot
+    - PerplexityBot
+    - PetalBot
+    - Scrapy
+    - SidetradeIndexerBot
+    - Timpibot
+    - VelenPublicWebCrawler
+    - Webzio-Extended
+    - YouBot
+    - AhrefsBot
+    - SemrushBot
+    - meta-externalagent
