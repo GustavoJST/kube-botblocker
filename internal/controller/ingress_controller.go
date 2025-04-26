@@ -19,12 +19,12 @@ package controller
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
-	"regexp"
 
 	networkingv1 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -53,84 +53,96 @@ type IngressReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the Ingress object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.2/pkg/reconcile
 func (r *IngressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
 	var ingress networkingv1.Ingress
 	if err := r.Get(ctx, req.NamespacedName, &ingress); err != nil {
-		if errors.IsNotFound(err) {
-			log.Error(err, "Reconciled Ingress resource was not found")
+		if apierrors.IsNotFound(err) {
+			log.Error(err, "Ingress not found; ignoring since object must be deleted")
 		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	ingressConfigName, ok := ingress.GetAnnotations()[annotations.IngressConfigNameAnnotation]
-	if !ok {
-		log.Info(fmt.Sprintf("Ingress is missing annotation '%s'. Skipping reconciliation", annotations.IngressConfigNameAnnotation))
-		return ctrl.Result{}, nil
+	ann := ingress.GetAnnotations()
+	if ann == nil {
+		ann = make(map[string]string)
 	}
 
-	if _, ok := ingress.GetAnnotations()[annotations.ProtectedIngressAnnotation]; !ok {
-		currentConfig, exist := ingress.GetAnnotations()[annotations.IngressServerSnippet]
-		if exist {
-			// Removes config if found
-			updateAnnotation(currentConfig, "")
-			log.Info("Cleaned up existing config from ingress")
+	protected := ann[annotations.ProtectedIngressAnnotation] == "true"
+	var changed bool
+
+	if !protected {
+		if current, ok := ann[annotations.IngressServerSnippet]; ok {
+			log.Info("Started cleaning operation for Ingress")
+			cleaned, err := updateAnnotation(current, "")
+			if err != nil {
+				log.Error(err, "failed cleaning Ingress snippet annotation")
+				return ctrl.Result{}, nil
+			}
+			if cleaned == "" {
+				delete(ann, annotations.IngressServerSnippet)
+			} else {
+				ann[annotations.IngressServerSnippet] = cleaned
+			}
+			changed = true
 		}
-
-		delete(ingress.Annotations, annotations.IngressConfigNameAnnotation)
-		if err := r.Update(ctx, &ingress); err != nil {
-			log.Error(err, "Error updating ingress on clean up")
-			return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
+		if _, ok := ann[annotations.IngressConfigNameAnnotation]; ok {
+			delete(ann, annotations.IngressConfigNameAnnotation)
+			changed = true
 		}
-		return ctrl.Result{}, nil
-	}
-
-	var ingressConfig v1alpha1.IngressConfig
-	ingressConfigNamespacedName := types.NamespacedName{
-		Namespace: r.Environment.OperatorNamespace,
-		Name:      ingressConfigName,
-	}
-	if err := r.Get(ctx, ingressConfigNamespacedName, &ingressConfig); err != nil {
-		if errors.IsNotFound(err) {
-			log.Error(
-				err, "IngressConfig resource associated with this ingress was not found",
-				"ingressConfigName", ingressConfigName,
-				"ingressConfigNamespace", r.Environment.OperatorNamespace,
-			)
-		}
-		return ctrl.Result{}, nil
-	}
-
-
-	nginxConfig := buildNginxConfig(ingressConfig.Spec.BlockedUserAgents)
-	currentConfig := ingress.GetAnnotations()[annotations.IngressServerSnippet]
-	updatedConfig := updateAnnotation(currentConfig, nginxConfig)
-
-
-	// TODO: Test for reconcile looping
-	if currentConfig == updatedConfig {
-		log.Info("Ingress configuration up to date")
-		return ctrl.Result{}, nil
 	} else {
-		// TODO: for debug purposes only
-		log.Info("NOT EQUAL HERE")
+		cfgName, ok := ann[annotations.IngressConfigNameAnnotation]
+		if !ok {
+			log.Info(
+				"Skipping protected Ingress without config name",
+				"annotation", annotations.IngressConfigNameAnnotation,
+			)
+			return ctrl.Result{}, nil
+		}
+
+		var cfg v1alpha1.IngressConfig
+		key := types.NamespacedName{Namespace: r.Environment.OperatorNamespace, Name: cfgName}
+		if err := r.Get(ctx, key, &cfg); err != nil {
+			if apierrors.IsNotFound(err) {
+				log.Error(err, "IngressConfig not found", "ingressConfigName", cfgName)
+			} else {
+				log.Error(err, "Error fetching IngressConfig", "ingressConfigName", cfgName)
+			}
+			return ctrl.Result{}, nil
+		}
+
+		desired := buildNginxConfig(cfg.Spec.BlockedUserAgents)
+		current := ann[annotations.IngressServerSnippet]
+		updated, err := updateAnnotation(current, desired)
+		if err != nil {
+			log.Error(
+				err,
+				"Marker mismatch detect in current config; manual cleanup of all operator added configuration for the Ingress is required",
+			)
+			return ctrl.Result{}, nil
+		}
+
+		if updated != current {
+			if updated == "" {
+				delete(ann, annotations.IngressServerSnippet)
+			} else {
+				ann[annotations.IngressServerSnippet] = updated
+			}
+			changed = true
+		}
 	}
 
-	ingress.Annotations[annotations.IngressServerSnippet] = updatedConfig
-	log.Info("Updating configuration in Ingress resource")
-	if err := r.Update(ctx, &ingress); err != nil {
-		log.Error(err, fmt.Sprintf("Failed to update ingress with '%s' annotation", annotations.IngressServerSnippet))
-		return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
+	if changed {
+		ingress.SetAnnotations(ann)
+		if err := r.Update(ctx, &ingress); err != nil {
+			log.Error(err, "failed updating Ingress annotations")
+			return ctrl.Result{RequeueAfter: time.Minute}, nil
+		}
+		log.Info("Ingress annotations updated successfully")
+	} else {
+		log.Info("No changes detected; skipping update")
 	}
-
 	return ctrl.Result{}, nil
 }
 
@@ -161,27 +173,56 @@ func (r *IngressReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func updateAnnotation(currentConf, updatedConf string) string {
-	pattern := regexp.MustCompile("(?s)" + regexp.QuoteMeta(startMarker) + ".*?" + regexp.QuoteMeta(endMarker))
+func updateAnnotation(currentConf, updatedConf string) (string, error) {
+	startMarkerCount := strings.Count(currentConf, startMarker)
+	endMarkerCount := strings.Count(currentConf, endMarker)
 
-	// If updatedConf is empty, remove the entire block
-	if updatedConf == "" {
-	return pattern.ReplaceAllString(currentConf, "")
-
+	if startMarkerCount != endMarkerCount || startMarkerCount > 1 && endMarkerCount > 1 {
+		return "", fmt.Errorf(
+			"mismatched or wrong number of start and end markers for kube-botblocker config. "+
+				"Expected 1 start and end markers, got %d start and %d end markers",
+			startMarkerCount, endMarkerCount,
+		)
 	}
+
+	pattern := regexp.MustCompile("(?sm)^" + regexp.QuoteMeta(startMarker) + ".*?" + regexp.QuoteMeta(endMarker) + "$")
+
+	// If updatedConf is empty, remove the entire block that matches the pattern
+	if updatedConf == "" {
+		return pattern.ReplaceAllLiteralString(currentConf, ""), nil
+	}
+
 	// Add updatedConf if currentConf is empty or doesn't have a valid kube-botblocker config
 	// with start and end markers
 	if !pattern.MatchString(currentConf) {
-		return currentConf + updatedConf
+		return currentConf + fmt.Sprint("\n"+updatedConf), nil
 	}
 
-	return pattern.ReplaceAllString(currentConf, updatedConf)
+	return pattern.ReplaceAllLiteralString(currentConf, updatedConf), nil
+}
+
+var (
+	startMarker = fmt.Sprintf("# %s operator: Configuration start\n", v1alpha1.GroupVersion.Group)
+	endMarker   = fmt.Sprintf("# %s operator: Configuration end", v1alpha1.GroupVersion.Group)
+)
+
+func buildNginxConfig(userAgents []string) string {
+	var sb strings.Builder
+	pattern := strings.Join(userAgents, "|")
+	sb.WriteString(startMarker)
+	sb.WriteString("# Configuration added by kube-botblocker operator. Do not edit any of this manually\n")
+	sb.WriteString(fmt.Sprintf(`if ($http_user_agent ~* "(%s)") {`, pattern))
+	sb.WriteString("\n  return 403;\n")
+	sb.WriteString("}\n")
+	sb.WriteString(endMarker)
+	return sb.String()
 }
 
 func (r *IngressReconciler) ReconcileFanOut(ctx context.Context, obj client.Object) []ctrl.Request {
 	var (
-		requests  = []ctrl.Request{}
-		fanOutLog = ctrl.Log.WithName("fanOutReconcile")
+		requests      = []ctrl.Request{}
+		fanOutLog     = ctrl.Log.WithName("fanOutReconcile")
+		ingressConfig = obj.(*v1alpha1.IngressConfig)
 	)
 
 	var ingressList networkingv1.IngressList
@@ -191,9 +232,13 @@ func (r *IngressReconciler) ReconcileFanOut(ctx context.Context, obj client.Obje
 		&client.MatchingFields{fmt.Sprintf("metadata.annotations.%s", annotations.ProtectedIngressAnnotation): "true"},
 	); err != nil {
 		fanOutLog.Error(err, "Failed to fetch list of protected ingresses")
+		return requests
 	}
 
 	for _, ingress := range ingressList.Items {
+		if ingress.Annotations[annotations.IngressConfigNameAnnotation] != ingressConfig.Name {
+			continue
+		}
 		request := ctrl.Request{
 			NamespacedName: types.NamespacedName{
 				Namespace: ingress.GetNamespace(),
@@ -202,7 +247,6 @@ func (r *IngressReconciler) ReconcileFanOut(ctx context.Context, obj client.Obje
 		}
 		requests = append(requests, request)
 	}
-
 	return requests
 }
 
@@ -235,23 +279,4 @@ func checkIngressAnnotations(obj client.Object) bool {
 		result = true
 	}
 	return result
-}
-
-var (
-	startMarker = fmt.Sprintf("\n# %s operator: Configuration start\n", v1alpha1.GroupVersion.Group)
-	// Este newline no final pode trazer problemas se não tiver um espaço vazio no final da annotation. Talvez remover
-	endMarker   = fmt.Sprintf("# %s operator: Configuration end\n", v1alpha1.GroupVersion.Group)
-)
-
-func buildNginxConfig(userAgents []string) string {
-	var sb strings.Builder
-	pattern := strings.Join(userAgents, "|")
-
-	sb.WriteString(startMarker)
-	sb.WriteString("# Configuration added by kube-botblocker operator. Do not edit any of this manually\n")
-	sb.WriteString(fmt.Sprintf(`if ($http_user_agent ~* "(%s)") {`, pattern))
-	sb.WriteString("\nreturn 403\n")
-	sb.WriteString("}\n")
-	sb.WriteString(endMarker)
-	return sb.String()
 }
