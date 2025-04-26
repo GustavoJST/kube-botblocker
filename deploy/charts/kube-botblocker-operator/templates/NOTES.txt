@@ -1,0 +1,4 @@
+mariadb-operator has been successfully deployed! ✨
+
+Check out the docs below on how to get started:
+https://github.com/GustavoJST/kube-botblocker

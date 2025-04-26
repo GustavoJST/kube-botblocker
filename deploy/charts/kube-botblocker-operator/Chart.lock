@@ -1,0 +1,6 @@
+dependencies:
+- name: kube-botblocker-operator-crds
+  repository: file://../kube-botblocker-operator-crds
+  version: 0.1.0
+digest: sha256:3fb20fd8a9ddb283e61e3435d949c80136e4856ccba63b9175a882b6e037f2a9
+generated: "2025-04-26T16:08:58.669162125-03:00"

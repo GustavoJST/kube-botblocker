@@ -1,0 +1,102 @@
+{{- if .Values.cleanupJob.enabled -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "kube-botblocker-operator.cleanupJob.name" . }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-delete
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- with .Values.cleanupJob.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  labels:
+    {{- include "kube-botblocker-operator.cleanupJob.labels" . | nindent 4 }}
+    {{- with .Values.cleanupJob.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      {{- with .Values.cleanupJob.podLabels }}
+      labels:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.cleanupJob.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.cleanupJob.image.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "kube-botblocker-operator.cleanupJob.serviceAccountName" . }}
+      containers:
+        - name: kubectl
+          {{- $kubectlRegistry :=  .Values.cleanupJob.image.kubectl.registry -}}
+          {{- $defaultKubernetesVersion := regexFind "v\\d+\\.\\d+\\.\\d+" .Capabilities.KubeVersion.Version }}
+          {{- if .Values.cleanupJob.image.kubectl.sha }}
+          image: "{{ $kubectlRegistry }}/{{ .Values.cleanupJob.image.kubectl.repository }}:{{ .Values.cleanupJob.image.kubectl.tag | default $defaultKubernetesVersion }}@sha256:{{ .Values.cleanupJob.image.kubectl.sha }}"
+          {{- else }}
+          image: "{{ $kubectlRegistry }}/{{ .Values.cleanupJob.image.kubectl.repository }}:{{ .Values.cleanupJob.image.kubectl.tag | default $defaultKubernetesVersion }}"
+          {{- end }}
+          imagePullPolicy: "{{ .Values.cleanupJob.image.kubectl.pullPolicy }}"
+          command:
+            - kubectl
+          args:
+            - 'annotate'
+            - 'ingress'
+            {{- if .Values.currentNamespaceOnly }}
+            - '--all'
+            {{- else }}
+            - '-A'
+            {{- end }}
+            - 'kube-botblocker.github.io/protectedIngress-'
+          {{- with .Values.cleanupJob.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.cleanupJob.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            {{- with .Values.cleanupJob.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.cleanupJob.env }}
+          env:
+            {{- range $key, $value := . }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          {{- end }}
+      volumes:
+        {{- with .Values.cleanupJob.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      restartPolicy: OnFailure
+      {{- with .Values.cleanupJob.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.cleanupJob.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.cleanupJob.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.cleanupJob.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.cleanupJob.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end -}}
