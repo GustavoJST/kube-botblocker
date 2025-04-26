@@ -1,0 +1,5 @@
+kube-botblocker-operator CRDs have been successfully installed! ✨
+
+To complete the kube-botblocker-operator installation, please now proceed to install the
+kube-botblocker-operator chart:
+https://github.com/gustavojst/kube-botblocker/deploy/charts/kube-botblocker-operator
