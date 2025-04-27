@@ -257,7 +257,9 @@ func ingressPredicate() predicate.Predicate {
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			result := false
-			if e.ObjectOld.GetAnnotations()[annotations.ProtectedIngressAnnotation] == "true" || e.ObjectNew.GetAnnotations()[annotations.ProtectedIngressAnnotation] == "true" {
+			annOld := e.ObjectOld.GetAnnotations()[annotations.ProtectedIngressAnnotation]
+			annNew := e.ObjectNew.GetAnnotations()[annotations.ProtectedIngressAnnotation]
+			if annOld == "true" || annNew == "true" {
 				result = true
 			}
 			return result
@@ -273,10 +275,5 @@ func ingressPredicate() predicate.Predicate {
 
 func checkIngressAnnotations(obj client.Object) bool {
 	objAnnotations := obj.(*networkingv1.Ingress).GetAnnotations()
-
-	result := false
-	if objAnnotations[annotations.ProtectedIngressAnnotation] == "true" && objAnnotations[annotations.IngressConfigNameAnnotation] != "" {
-		result = true
-	}
-	return result
+	return objAnnotations[annotations.ProtectedIngressAnnotation] == "true" && objAnnotations[annotations.IngressConfigNameAnnotation] != ""
 }

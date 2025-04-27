@@ -209,7 +209,7 @@ func main() {
 	if env.CurrentNamespaceOnly {
 		setupLog.Info("Watching resources in operator namespace only", "namespace", env.OperatorNamespace)
 		mgrOpts.Cache.DefaultNamespaces = map[string]cache.Config{
-			env.OperatorNamespace: cache.Config{},
+			env.OperatorNamespace: {},
 		}
 	}
 
