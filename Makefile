@@ -41,6 +41,17 @@ help: ## Display this help.
 
 ##@ Development
 
+OPERATOR_NAMESPACE ?= default
+CURRENT_NAMESPACE_ONLY ?= false
+
+ENV ?= \
+	OPERATOR_NAMESPACE=$(OPERATOR_NAMESPACE) \
+	CURRENT_NAMESPACE_ONLY=$(CURRENT_NAMESPACE_ONLY) \
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)"
+
+TEST_ARGS ?= -coverprofile cover.out
+TEST ?= go test $(TEST_ARGS)
+
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
@@ -59,7 +70,8 @@ vet: ## Run go vet against code.
 
 .PHONY: test
 test: manifests generate fmt vet setup-envtest ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test $$(go list ./... | grep -v /e2e) -coverprofile cover.out
+	$(ENV) $(TEST) $$(go list ./... | grep -v /e2e)
+
 
 # TODO(user): To use a different vendor for e2e tests, modify the setup under 'tests/e2e'.
 # The default setup assumes Kind is pre-installed and builds/loads the Manager Docker image locally.
