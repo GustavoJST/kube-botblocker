@@ -8,8 +8,6 @@ metadata:
 spec:
   blockedUserAgents:
     - AI2Bot
-    - GoogleBot
-    - AI2Bot
     - Ai2Bot-Dolma
     - Amazonbot
     - anthropic-ai

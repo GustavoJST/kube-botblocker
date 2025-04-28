@@ -28,7 +28,10 @@ type IngressConfigSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Config to be added to each ingress in the server-snippet annotation
+	// List of User-Agents to be added to the blocklist in each protected Ingress
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:Required
+	// +listType=set
 	BlockedUserAgents []string `json:"blockedUserAgents"`
 }
 
