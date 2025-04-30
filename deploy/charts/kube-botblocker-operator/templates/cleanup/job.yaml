@@ -49,9 +49,8 @@ spec:
           args:
             - 'annotate'
             - 'ingress'
-            {{- if .Values.currentNamespaceOnly }}
             - '--all'
-            {{- else }}
+            {{- if not .Values.currentNamespaceOnly }}
             - '-A'
             {{- end }}
             - 'kube-botblocker.github.io/protectedIngress-'

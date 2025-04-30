@@ -36,8 +36,6 @@ spec:
             - {{ printf "--metrics-bind-address=:%s" (.Values.metrics.port | toString) }}
             - "--leader-elect"
             - "--health-probe-bind-address=:8081"
-          command:
-            - /manager
           ports:
             {{- if .Values.metrics.enabled }}
             - containerPort: {{ .Values.metrics.port }}

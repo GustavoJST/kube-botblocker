@@ -1,6 +1,6 @@
 apiVersion: v2
 name: kube-botblocker-operator
-description: Protect your Ingresses from AI Bots and other User Agents easily - ingress-nginx only
+description: Easily configure User-Agent blocks for selected ingresses - ingress-nginx only
 home: https://github.com/GustavoJST/kube-botblocker
 
 # A chart can be either an 'application' or a 'library' chart.

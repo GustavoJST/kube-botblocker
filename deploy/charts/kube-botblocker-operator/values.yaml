@@ -46,7 +46,7 @@ cleanupJob:
     imagePullSecrets: []
     kubectl:
       registry: registry.k8s.io
-      repository: ""
+      repository: kubectl
       tag: ""  # defaults to the Kubernetes version
       sha: ""
       pullPolicy: IfNotPresent
@@ -154,11 +154,11 @@ cleanupJob:
       type: RuntimeDefault
 
 image:
-  repository: controller
+  repository: quay.io/gustavojst/kube-botblocker
   # This sets the pull policy for images.
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
+  tag: "latest"
 
 # This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 imagePullSecrets: []
