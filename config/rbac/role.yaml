@@ -5,9 +5,16 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
-  - kube-botblocker.github.io
+  - ""
   resources:
-  - ingresses
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
   verbs:
   - create
   - delete
@@ -19,14 +26,20 @@ rules:
 - apiGroups:
   - kube-botblocker.github.io
   resources:
-  - ingresses/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - kube-botblocker.github.io
-  resources:
-  - ingresses/status
+  - ingressconfigs
   verbs:
   - get
+  - list
   - patch
   - update
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch

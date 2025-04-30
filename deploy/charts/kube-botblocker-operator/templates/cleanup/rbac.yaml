@@ -1,8 +1,18 @@
-{{- if and (not .Values.currentNamespaceOnly) .Values.cleanupJob.enabled }}
+{{- if .Values.cleanupJob.enabled }}
+{{ $kind := "" }}
+{{ $kindBinding := "" }}
+{{- if .Values.currentNamespaceOnly }}
+{{- $kind        = "Role" }}
+{{- $kindBinding = "RoleBinding" }}
+{{- else }}
+{{- $kind        = "ClusterRole" }}
+{{- $kindBinding = "ClusterRoleBinding" }}
+{{- end }}
+{{- $fullName := include "kube-botblocker-operator.cleanupJob.name" . }}
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: {{ $kind }}
 metadata:
-  name: {{ include "kube-botblocker-operator.cleanupJob.name" . }}
+  name: {{ $fullName }}
   namespace: {{ .Release.Namespace }}
   annotations:
     "helm.sh/hook": pre-delete
@@ -21,13 +31,13 @@ rules:
       - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: {{ $kindBinding }}
 metadata:
-  name: {{ include "kube-botblocker-operator.cleanupJob.name" . }}
+  name: {{ $fullName }}
   namespace: {{ .Release.Namespace }}
   annotations:
-    "helm.sh/hook": pre-install,pre-upgrade,pre-rollback
-    "helm.sh/hook-weight": "-3"
+    "helm.sh/hook": pre-delete
+    "helm.sh/hook-weight": "-4"
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
   labels:
     {{- include "kube-botblocker-operator.cleanupJob.labels" . | nindent 4 }}
@@ -36,8 +46,8 @@ subjects:
     namespace: {{ .Release.Namespace }}
     name: {{ include "kube-botblocker-operator.cleanupJob.serviceAccountName" . }}
 roleRef:
-  kind: ClusterRole
-  name: {{ include "kube-botblocker-operator.cleanupJob.name" . }}
+  kind: {{ $kind }}
+  name: {{ $fullName }}
   apiGroup: rbac.authorization.k8s.io
 {{- end }}
 

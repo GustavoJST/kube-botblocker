@@ -40,8 +40,8 @@ spec:
             description: IngressConfigSpec defines the desired state of IngressConfig.
             properties:
               blockedUserAgents:
-                description: Config to be added to each ingress in the server-snippet
-                  annotation
+                description: List of User-Agents to be added to the blocklist in each
+                  protected Ingress
                 items:
                   type: string
                 minItems: 1
