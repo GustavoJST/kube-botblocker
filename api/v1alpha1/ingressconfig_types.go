@@ -28,8 +28,11 @@ type IngressConfigSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of IngressConfig. Edit ingressconfig_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// List of User-Agents to be added to the blocklist in each protected Ingress
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:Required
+	// +listType=set
+	BlockedUserAgents []string `json:"blockedUserAgents"`
 }
 
 // IngressConfigStatus defines the observed state of IngressConfig.

@@ -1,0 +1,50 @@
+version: "2"
+linters:
+  default: none
+  enable:
+    - bidichk
+    - errcheck
+    - ginkgolinter
+    - gocyclo
+    - govet
+    - ineffassign
+    - lll
+    - misspell
+    - nestif
+    - noctx
+    - staticcheck
+    - unused
+  settings:
+    gocyclo:
+      min-complexity: 22
+    lll:
+      line-length: 140
+    misspell:
+      locale: US
+    nestif:
+      min-complexity: 12
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - lll
+        source: //
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

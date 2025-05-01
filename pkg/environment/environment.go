@@ -6,7 +6,7 @@ import (
 
 type OperatorEnv struct {
 	OperatorNamespace    string `env:"OPERATOR_NAMESPACE,required"`
-	CurrentNamespaceOnly bool   `env:"CURRENT_NAMESPACE_ONLY" envDefault:"false"`
+	CurrentNamespaceOnly bool   `env:"CURRENT_NAMESPACE_ONLY,required" envDefault:"false"`
 }
 
 func GetOperatorEnv() (*OperatorEnv, error) {
