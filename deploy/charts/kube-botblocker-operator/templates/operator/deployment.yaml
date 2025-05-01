@@ -33,7 +33,9 @@ spec:
       containers:
         - name: controller
           args:
-            - {{ printf "--metrics-bind-address=:%s" (.Values.metrics.port | toString) }}
+            {{- if .Values.metrics.enabled }}
+            - {{ printf "--metrics-bind-address=:%s" (.Values.metrics.port | toString) | quote }}
+            {{- end }}
             - "--leader-elect"
             - "--health-probe-bind-address=:8081"
           ports:
@@ -69,22 +71,6 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- if and .Values.certmanager.enable (or .Values.webhook.enable .Values.metrics.enable) }}
-          volumeMounts:
-            {{- if and .Values.metrics.enable .Values.certmanager.enable }}
-            - name: metrics-certs
-              mountPath: /tmp/k8s-metrics-server/metrics-certs
-              readOnly: true
-            {{- end }}
-          {{- end }}
-      {{- if and .Values.certmanager.enable (or .Values.webhook.enable .Values.metrics.enable) }}
-      volumes:
-        {{- if and .Values.metrics.enable .Values.certmanager.enable }}
-        - name: metrics-certs
-          secret:
-            secretName: metrics-server-cert
-        {{- end }}
-      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

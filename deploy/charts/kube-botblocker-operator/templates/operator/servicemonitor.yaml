@@ -4,14 +4,14 @@ kind: ServiceMonitor
 metadata:
   name: {{ include "kube-botblocker-operator.fullname" . }}
   labels:
-    {{ include "kube-botblocker-operator.labels" . | nindent 4 }}
-    {{ with .Values.metrics.serviceMonitor.additionalLabels }}
-    {{ toYaml . | nindent 4 }}
-    {{ end }}
+    {{- include "kube-botblocker-operator.labels" . | nindent 4 }}
+    {{- with .Values.metrics.serviceMonitor.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   selector:
     matchLabels:
-      {{ include "kube-botblocker-operator.selectorLabels" . | nindent 6 }}
+      {{- include "kube-botblocker-operator.selectorLabels" . | nindent 6 }}
   namespaceSelector:
     matchNames:
     - {{ .Release.Namespace | quote }}

@@ -31,14 +31,6 @@ metrics:
     # RelabelConfigs to apply to samples before scraping.
     relabelings: []
 
-# [PROMETHEUS]: To enable a ServiceMonitor to export metrics to Prometheus set true
-prometheus:
-  enabled: false
-
-# [CERT-MANAGER]: To enable cert-manager injection to webhooks set true
-certmanager:
-  enabled: false
-
 image:
   repository: quay.io/gustavojst/kube-botblocker
   # This sets the pull policy for images.
