@@ -5,6 +5,7 @@ on:
     paths:
       - '**/.go'
       - '.github/workflows/golangci-lint.yml'
+      - '.golangci.yaml'
 
 jobs:
   lint:

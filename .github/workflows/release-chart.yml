@@ -2,8 +2,11 @@ name: Release Charts
 
 on:
   push:
-    tags:
-      - "kube-botblocker-*-[0-9]+.[0-9]+.[0-9]+"
+    branches:
+      - main
+    paths:
+      - 'deploy/charts/kube-botblocker-operator/Chart.yaml'
+      - 'deploy/charts/kube-botblocker-operator-crds/Chart.yaml'
 
 jobs:
   release:
