@@ -1,6 +1,6 @@
 apiVersion: v2
 name: kube-botblocker-operator-crds
-description: kube-botblocker-operator kube-botblocker-operator-crds
+description: CRDs for kube-botblocker-operator
 home: https://github.com/GustavoJST/kube-botblocker
 
 # A chart can be either an 'application' or a 'library' chart.
