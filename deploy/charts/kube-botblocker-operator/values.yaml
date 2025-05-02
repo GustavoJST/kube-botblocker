@@ -61,18 +61,17 @@ podAnnotations: {}
 podLabels: {}
 
 # -- Security context to add to controller Pod
-podSecurityContext:
-  allowPrivilegeEscalation: false
-  capabilities:
-    drop:
-      - "ALL"
-  # fsGroup: 2000
+podSecurityContext: {}
 
 # -- Security context to add to controller container
 securityContext:
+  allowPrivilegeEscalation: false
   runAsNonRoot: true
   seccompProfile:
     type: RuntimeDefault
+  capabilities:
+    drop:
+      - "ALL"
   # capabilities:
   #   drop:
   #   - ALL
