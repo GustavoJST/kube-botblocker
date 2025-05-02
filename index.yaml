@@ -1,0 +1,49 @@
+apiVersion: v1
+entries:
+  kube-botblocker-operator:
+  - apiVersion: v2
+    appVersion: 0.1.0
+    created: "2025-05-02T21:38:35.908789Z"
+    dependencies:
+    - condition: crds.enabled
+      name: kube-botblocker-operator-crds
+      repository: file://../kube-botblocker-operator-crds
+      version: 0.1.0
+    description: Easily configure User-Agent blocks for selected ingresses - ingress-nginx
+      only
+    digest: 753fa0a65987ca9e5dee350aba4c277c717d2ff6b1d1102413d6c81e754735d1
+    home: https://github.com/GustavoJST/kube-botblocker
+    keywords:
+    - bots
+    - ai
+    - block
+    - ingress
+    - nginx
+    name: kube-botblocker-operator
+    sources:
+    - https://github.com/GustavoJST/kube-botblocker
+    type: application
+    urls:
+    - kube-botblocker-operator-0.1.0.tgz
+    version: 0.1.0
+  kube-botblocker-operator-crds:
+  - apiVersion: v2
+    appVersion: 0.0.0
+    created: "2025-05-02T21:38:36.000824625Z"
+    description: CRDs for kube-botblocker-operator
+    digest: 8b096321a5c4cc97c542e3cb13bfa10b7a377fdb92ed9a49442cca6a4ebc109c
+    home: https://github.com/GustavoJST/kube-botblocker
+    keywords:
+    - bots
+    - ai
+    - block
+    - ingress
+    - nginx
+    name: kube-botblocker-operator-crds
+    sources:
+    - https://github.com/GustavoJST/kube-botblocker
+    type: application
+    urls:
+    - kube-botblocker-operator-crds-0.1.0.tgz
+    version: 0.1.0
+generated: "2025-05-02T21:38:36.000831869Z"
