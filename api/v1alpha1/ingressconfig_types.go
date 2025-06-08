@@ -20,14 +20,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // IngressConfigSpec defines the desired state of IngressConfig.
 type IngressConfigSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
 	// List of User-Agents to be added to the blocklist in each protected Ingress
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:Required
@@ -35,14 +29,45 @@ type IngressConfigSpec struct {
 	BlockedUserAgents []string `json:"blockedUserAgents"`
 }
 
+// ProtectedIngressStats defines the statistics for ingresses protected by an IngressConfig.
+type ProtectedIngressStats struct {
+	// Total number of Ingresses that are configured to use this IngressConfig.
+	// +optional
+	Total int32 `json:"total,omitempty"`
+
+	// Number of Ingresses that have been successfully reconciled with the latest IngressConfig spec.
+	// This count is reset to 0 when the IngressConfig spec changes and increments as Ingresses are updated.
+	// +optional
+	Updated int32 `json:"updated,omitempty"`
+}
+
 // IngressConfigStatus defines the observed state of IngressConfig.
 type IngressConfigStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Statistics about the reconcile process for IngressConfig.
+	// +optional
+	ProtectedIngress ProtectedIngressStats `json:"protectedIngress,omitempty"`
+
+	// LastUpdated is the timestamp when the IngressConfig spec was last modified,
+	// triggering a potential reconciliation of associated Ingresses.
+	// This field is updated when the .spec of IngressConfig changes.
+	// +optional
+	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
+
+	// Conditions provide observations of the IngressConfig's state.
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+
+	// ObservedGeneration is the most recent generation observed for this IngressConfig.
+	// It corresponds to the IngressConfig's generation.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"UpdateSucceeded\")].status"
+// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[?(@.type==\"UpdateSucceeded\")].message"
+// +kubebuilder:printcolumn:name="Last Updated",type="date",JSONPath=".status.lastUpdated"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // IngressConfig is the Schema for the ingressconfigs API.
 type IngressConfig struct {
@@ -65,3 +90,9 @@ type IngressConfigList struct {
 func init() {
 	SchemeBuilder.Register(&IngressConfig{}, &IngressConfigList{})
 }
+
+const (
+	ConditionTypeUpdateSucceeded            string = "UpdateSucceeded"
+	ConditionReasonReconciliationInProgress string = "ReconciliationInProgress"
+	ConditionReasonReconciliationSuccessful string = "ReconciliationSuccessful"
+)
