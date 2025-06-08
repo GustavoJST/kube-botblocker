@@ -1,3 +1,19 @@
+/*
+Copyright 2025.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package controller
 
 import (
@@ -5,9 +21,12 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -35,10 +54,9 @@ type IngressReconciler struct {
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
 func (r *IngressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
+	log.Info("================Starting reconcile for ingress========================")
 
 	var ingress networkingv1.Ingress
 	if err := r.Get(ctx, req.NamespacedName, &ingress); err != nil {
@@ -54,14 +72,14 @@ func (r *IngressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	protected := ann[annotations.ProtectedIngressAnnotation] == "true"
-	var annotations map[string]string
+	var updatedAnn map[string]string
 	var changed bool
 	var err error
 
 	if protected {
-		annotations, changed, err = r.handleProtectedIngress(ctx, ann)
+		updatedAnn, changed, err = r.handleProtectedIngress(ctx, ann)
 	} else {
-		annotations, changed, err = r.cleanupConfig(ann)
+		updatedAnn, changed, err = r.cleanupConfig(ann)
 	}
 
 	if err != nil {
@@ -69,7 +87,8 @@ func (r *IngressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if changed {
-		ingress.SetAnnotations(annotations)
+		updatedAnn[annotations.LastUpdatedAnnotation] = metav1.Now().Add(2 * time.Second).UTC().Format(time.RFC3339)
+		ingress.SetAnnotations(updatedAnn)
 		if err := r.Update(ctx, &ingress); err != nil {
 			log.Error(err, "failed updating Ingress annotations")
 			return ctrl.Result{}, err
@@ -183,9 +202,32 @@ func (r *IngressReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
+	if err := mgr.GetFieldIndexer().IndexField(
+		context.Background(),
+		&networkingv1.Ingress{},
+		fmt.Sprintf("metadata.annotations.%s", annotations.IngressConfigNameAnnotation),
+		func(rawObj client.Object) []string {
+			ingress := rawObj.(*networkingv1.Ingress)
+			ingressConfigName := ingress.GetAnnotations()[annotations.IngressConfigNameAnnotation]
+
+			if ingressConfigName == "" {
+				return nil
+			}
+
+			return []string{ingressConfigName}
+		},
+	); err != nil {
+		return err
+	}
+
+	// predicate.GenerationChangedPredicate{}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&networkingv1.Ingress{}, builder.WithPredicates(ingressPredicate())).
-		Watches(&v1alpha1.IngressConfig{}, handler.EnqueueRequestsFromMapFunc(r.ReconcileFanOut)).
+		Watches(
+			&v1alpha1.IngressConfig{},
+			handler.EnqueueRequestsFromMapFunc(r.ReconcileFanOut),
+			builder.WithPredicates(ingressConfigPredicate()),
+		).
 		Named("ingress").
 		Complete(r)
 }
@@ -265,6 +307,26 @@ func (r *IngressReconciler) ReconcileFanOut(ctx context.Context, obj client.Obje
 		requests = append(requests, request)
 	}
 	return requests
+}
+
+func ingressConfigPredicate() predicate.Predicate {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			objNew := e.ObjectNew.(*v1alpha1.IngressConfig)
+			return meta.IsStatusConditionPresentAndEqual(
+				objNew.Status.Conditions,
+				v1alpha1.ConditionTypeUpdateSucceeded,
+				metav1.ConditionFalse,
+			)
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			return meta.IsStatusConditionPresentAndEqual(
+				e.Object.(*v1alpha1.IngressConfig).Status.Conditions,
+				v1alpha1.ConditionTypeUpdateSucceeded,
+				metav1.ConditionFalse,
+			)
+		},
+	}
 }
 
 func ingressPredicate() predicate.Predicate {
