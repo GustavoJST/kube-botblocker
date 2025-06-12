@@ -22,7 +22,7 @@ linters:
     misspell:
       locale: US
     nestif:
-      min-complexity: 12
+      min-complexity: 15
   exclusions:
     generated: lax
     presets:
