@@ -88,7 +88,6 @@ func (r *IngressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return ctrl.Result{}, err
 		}
 
-		// Update the spec hash to indicate this ingress is up to date
 		if ingressConfig.Status.SpecHash != ann[annotations.IngressConfigSpecHash] {
 			desiredSnippet := buildNginxConfig(ingressConfig.Spec.BlockedUserAgents)
 			currentSnippet := ann[annotations.IngressServerSnippet]
@@ -107,7 +106,6 @@ func (r *IngressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		// Remove all operator-added configuration
 		log.Info("Starting cleanup operation for Ingress")
 
-		// Clean up server-snippet annotation
 		if currentSnippet, ok := ann[annotations.IngressServerSnippet]; ok {
 			cleaned, err := updateServerSnippet(currentSnippet, "")
 			if err != nil {
@@ -149,7 +147,6 @@ func (r *IngressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, nil
 }
 
-// SetupWithManager sets up the controller with the Manager.
 func (r *IngressReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(
 		context.Background(),
@@ -213,10 +210,8 @@ func updateServerSnippet(currentConf, updatedConf string) (string, error) {
 
 	pattern := regexp.MustCompile("(?sm)^" + regexp.QuoteMeta(startMarker) + ".*?" + regexp.QuoteMeta(endMarker) + "$")
 
-	// If updatedConf is empty, remove the entire block that matches the pattern
 	if updatedConf == "" {
 		result := pattern.ReplaceAllLiteralString(currentConf, "")
-		// Clean up any trailing newlines left by the removal
 		result = strings.TrimSpace(result)
 		return result, nil
 	}
