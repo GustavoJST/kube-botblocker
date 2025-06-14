@@ -1,11 +1,10 @@
 /*
 Copyright 2025.
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,7 +12,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package controller
 
 import (
@@ -21,7 +19,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"time"
 
 	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -60,13 +57,14 @@ var (
 
 func (r *IngressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
+
 	var ingress networkingv1.Ingress
 	if err := r.Get(ctx, req.NamespacedName, &ingress); err != nil {
 		if apierrors.IsNotFound(err) {
 			log.Info("Ingress not found")
 			return ctrl.Result{}, nil
 		}
-		log.Error(err, "Erro fetching Ingress")
+		log.Error(err, "Error fetching Ingress")
 		return ctrl.Result{}, err
 	}
 
@@ -74,6 +72,7 @@ func (r *IngressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if ann == nil {
 		ann = make(map[string]string)
 	}
+
 	ingressConfigName, protected := ann[annotations.IngressConfigNameAnnotation]
 	changed := false
 
@@ -89,41 +88,54 @@ func (r *IngressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return ctrl.Result{}, err
 		}
 
-		desiredSnippet := buildNginxConfig(ingressConfig.Spec.BlockedUserAgents)
-		currentSnippet := ann[annotations.IngressServerSnippet]
+		// Update the spec hash to indicate this ingress is up to date
+		if ingressConfig.Status.SpecHash != ann[annotations.IngressConfigSpecHash] {
+			desiredSnippet := buildNginxConfig(ingressConfig.Spec.BlockedUserAgents)
+			currentSnippet := ann[annotations.IngressServerSnippet]
+			updatedSnippet, err := updateServerSnippet(currentSnippet, desiredSnippet)
+			if err != nil {
+				log.Error(err, "Failed to create updated server-snippet annotation configuration")
+				return ctrl.Result{}, err
+			}
 
-		updatedSnippet, err := updateServerSnippet(currentSnippet, desiredSnippet)
-		if err != nil {
-			log.Error(err, "Failed to create updated server-snippet annotation configuration")
-		}
-
-		if updatedSnippet != currentSnippet {
+			ann[annotations.IngressConfigSpecHash] = ingressConfig.Status.SpecHash
 			ann[annotations.IngressServerSnippet] = updatedSnippet
 			changed = true
 		}
 	} else {
-		// Ingress had the ingressConfigName annotation removed. Previously added configuration
-		// by the operator should be cleaned up
+		// Ingress is not protected or is being cleaned up
+		// Remove all operator-added configuration
+		log.Info("Starting cleanup operation for Ingress")
+
+		// Clean up server-snippet annotation
 		if currentSnippet, ok := ann[annotations.IngressServerSnippet]; ok {
-			log.Info("Started cleaning operation for Ingress")
 			cleaned, err := updateServerSnippet(currentSnippet, "")
 			if err != nil {
 				log.Error(err, "Failed cleaning Ingress server-snippet annotation")
 				return ctrl.Result{}, err
 			}
+
 			if cleaned == "" {
 				delete(ann, annotations.IngressServerSnippet)
 			} else {
 				ann[annotations.IngressServerSnippet] = cleaned
 			}
+
+			changed = true
 		}
-		delete(ann, annotations.IngressConfigNameAnnotation)
-		delete(ann, annotations.LastUpdatedAnnotation)
-		changed = true
+
+		if _, exists := ann[annotations.IngressConfigNameAnnotation]; exists {
+			delete(ann, annotations.IngressConfigNameAnnotation)
+			changed = true
+		}
+
+		if _, exists := ann[annotations.IngressConfigSpecHash]; exists {
+			delete(ann, annotations.IngressConfigSpecHash)
+			changed = true
+		}
 	}
 
 	if changed {
-		ann[annotations.LastUpdatedAnnotation] = metav1.Now().Add(2 * time.Second).UTC().Format(time.RFC3339)
 		ingress.SetAnnotations(ann)
 		if err := r.Update(ctx, &ingress); err != nil {
 			log.Error(err, "Failed updating Ingress annotations")
@@ -203,13 +215,19 @@ func updateServerSnippet(currentConf, updatedConf string) (string, error) {
 
 	// If updatedConf is empty, remove the entire block that matches the pattern
 	if updatedConf == "" {
-		return pattern.ReplaceAllLiteralString(currentConf, ""), nil
+		result := pattern.ReplaceAllLiteralString(currentConf, "")
+		// Clean up any trailing newlines left by the removal
+		result = strings.TrimSpace(result)
+		return result, nil
 	}
 
 	// Add updatedConf if currentConf is empty or doesn't have a valid kube-botblocker config
 	// with start and end markers
 	if !pattern.MatchString(currentConf) {
-		return currentConf + fmt.Sprint("\n"+updatedConf), nil
+		if currentConf == "" {
+			return updatedConf, nil
+		}
+		return currentConf + "\n\n" + updatedConf, nil
 	}
 
 	return pattern.ReplaceAllLiteralString(currentConf, updatedConf), nil
@@ -218,12 +236,14 @@ func updateServerSnippet(currentConf, updatedConf string) (string, error) {
 func buildNginxConfig(userAgents []string) string {
 	var sb strings.Builder
 	pattern := strings.Join(userAgents, "|")
+
 	sb.WriteString(startMarker)
 	sb.WriteString("# Configuration added by kube-botblocker operator. Do not edit any of this manually\n")
 	sb.WriteString(fmt.Sprintf(`if ($http_user_agent ~* "(%s)") {`, pattern))
 	sb.WriteString("\n  return 403;\n")
 	sb.WriteString("}\n")
 	sb.WriteString(endMarker)
+
 	return sb.String()
 }
 
@@ -256,6 +276,7 @@ func (r *IngressReconciler) ReconcileFanOut(ctx context.Context, obj client.Obje
 		}
 		requests = append(requests, request)
 	}
+
 	return requests
 }
 
@@ -285,21 +306,20 @@ func ingressPredicate() predicate.Predicate {
 			return e.Object.(*networkingv1.Ingress).GetAnnotations()[annotations.IngressConfigNameAnnotation] != ""
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			result := false
-			annOld := e.ObjectOld.GetAnnotations()[annotations.IngressConfigNameAnnotation]
-			annNew := e.ObjectNew.GetAnnotations()[annotations.IngressConfigNameAnnotation]
-			if annOld != "" || annNew != "" {
-				result = true
-			}
-			return result
+			annOld := e.ObjectOld.GetAnnotations()
+			annNew := e.ObjectNew.GetAnnotations()
+
+			configNameOld := annOld[annotations.IngressConfigNameAnnotation]
+			configNameNew := annNew[annotations.IngressConfigNameAnnotation]
+
+			specHashOld := annOld[annotations.IngressConfigSpecHash]
+			specHashNew := annNew[annotations.IngressConfigSpecHash]
+
+			// Reconcile if annotation was added, removed, or changed
+			return configNameOld != configNameNew || specHashOld != specHashNew
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			return false
 		},
 	}
 }
-
-// func checkIngressAnnotations(obj client.Object) bool {
-// 	ingAnnotations := obj.(*networkingv1.Ingress).GetAnnotations()
-// 	return ingAnnotations[annotations.IngressConfigNameAnnotation] != ""
-// }

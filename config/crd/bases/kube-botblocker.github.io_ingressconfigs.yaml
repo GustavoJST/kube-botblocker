@@ -152,6 +152,10 @@ spec:
                     format: int32
                     type: integer
                 type: object
+              specHash:
+                description: SpecHash is the SHA256 hash of the .spec field of the
+                  IngressConfig.
+                type: string
             type: object
         type: object
     served: true

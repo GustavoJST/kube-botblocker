@@ -18,6 +18,9 @@ package controller
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -51,19 +54,35 @@ func (r *IngressConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+	if ingressConfig.Status.SpecHash == "" {
+		specHash, err := hashObj(ingressConfig.Spec)
+		if err != nil {
+			log.Error(err, "Failed hashing ingressConfig Spec")
+			return ctrl.Result{}, err
+		}
+		ingressConfig.Status.SpecHash = specHash
+		return ctrl.Result{Requeue: true}, nil
+	}
+
 	// Check if lastUpdated is nil or Generation changed
 	if ingressConfig.Status.LastUpdated == nil || ingressConfig.Generation != ingressConfig.Status.ObservedGeneration {
 		now := metav1.NewTime(time.Now().UTC())
+		specHash, err := hashObj(ingressConfig.Spec)
+		if err != nil {
+			log.Error(err, "Failed hashing IngressConfig Spec")
+			return ctrl.Result{}, err
+		}
 
 		ingressConfig.Status.LastUpdated = &now
 		ingressConfig.Status.ProtectedIngress.Total = 0
 		ingressConfig.Status.ProtectedIngress.Updated = 0
 		ingressConfig.Status.ObservedGeneration = ingressConfig.Generation
+		ingressConfig.Status.SpecHash = specHash
 		meta.SetStatusCondition(&ingressConfig.Status.Conditions, metav1.Condition{
 			Type:               v1alpha1.ConditionTypeUpdateSucceeded,
 			Status:             metav1.ConditionFalse,
 			Reason:             v1alpha1.ConditionReasonReconciliationInProgress,
-			Message:            "Waiting for all ingresses to be updated",
+			Message:            "Waiting for all Ingresses to be updated",
 			LastTransitionTime: now,
 		})
 
@@ -72,6 +91,7 @@ func (r *IngressConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			log.Error(err, "Failed to update IngresConfig status")
 			return ctrl.Result{}, err
 		}
+		log.Info("Rolling update on all associated Ingresses")
 		return ctrl.Result{}, nil
 	}
 
@@ -86,18 +106,9 @@ func (r *IngressConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	total := int32(len(ingressList.Items))
 	updated := int32(0)
-	configUpdatedTime := ingressConfig.Status.LastUpdated.Time
 	for _, ing := range ingressList.Items {
 		ann := ing.GetAnnotations()
-
-		lastUpdatedStr := ann[annotations.LastUpdatedAnnotation]
-		ingressUpdatedTime, err := time.Parse(time.RFC3339, lastUpdatedStr)
-
-		if err != nil {
-			continue
-		}
-
-		if ingressUpdatedTime.After(configUpdatedTime) {
+		if ann[annotations.IngressConfigSpecHash] == ingressConfig.Status.SpecHash {
 			updated++
 		}
 	}
@@ -111,7 +122,7 @@ func (r *IngressConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				Type:               v1alpha1.ConditionTypeUpdateSucceeded,
 				Status:             metav1.ConditionTrue,
 				Reason:             v1alpha1.ConditionReasonReconciliationSuccessful,
-				Message:            "All ingresses successfully reconciled",
+				Message:            "All Ingresses successfully reconciled",
 				LastTransitionTime: metav1.Now(),
 			})
 
@@ -119,6 +130,7 @@ func (r *IngressConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				log.Error(err, "Failed to update IngresConfig status")
 				return ctrl.Result{}, err
 			}
+			log.Info("Finished updating associated Ingresses")
 		}
 	}
 
@@ -130,15 +142,23 @@ func (r *IngressConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
-	// If there was an update but total != updated, then some ingresses are still reconciling.
+	// If there was an update but total != updated, then some Ingresses are still reconciling.
 	// Restart the reconcile to check again until succeeded.
 	return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 }
 
-// SetupWithManager sets up the controller with the Manager.
 func (r *IngressConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.IngressConfig{}).
 		Named("ingressconfig").
 		Complete(r)
+}
+
+func hashObj(spec any) (string, error) {
+	jsonBytes, err := json.Marshal(spec)
+	if err != nil {
+		return "", err
+	}
+	hash := sha256.Sum256(jsonBytes)
+	return hex.EncodeToString(hash[:]), nil
 }
