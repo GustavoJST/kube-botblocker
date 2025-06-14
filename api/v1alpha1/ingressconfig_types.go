@@ -56,6 +56,10 @@ type IngressConfigStatus struct {
 	// Conditions provide observations of the IngressConfig's state.
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 
+	// SpecHash is the SHA256 hash of the .spec field of the IngressConfig.
+	// +optional
+	SpecHash string `json:"specHash,omitempty"`
+
 	// ObservedGeneration is the most recent generation observed for this IngressConfig.
 	// It corresponds to the IngressConfig's generation.
 	// +optional

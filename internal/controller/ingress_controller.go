@@ -1,11 +1,10 @@
 /*
 Copyright 2025.
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,7 +12,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package controller
 
 import (
@@ -21,7 +19,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"time"
 
 	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -49,6 +46,10 @@ type IngressReconciler struct {
 	Environment *environment.OperatorEnv
 }
 
+var (
+	HasIngressConfigNameAnnotation = "HasIngressConfigNameAnnotation"
+)
+
 // +kubebuilder:rbac:groups=kube-botblocker.github.io,resources=ingressconfigs,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;patch;update;watch
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
@@ -56,14 +57,15 @@ type IngressReconciler struct {
 
 func (r *IngressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
-	log.Info("================Starting reconcile for ingress========================")
 
 	var ingress networkingv1.Ingress
 	if err := r.Get(ctx, req.NamespacedName, &ingress); err != nil {
 		if apierrors.IsNotFound(err) {
-			log.Info("Ingress not found; ignoring since object must be deleted")
+			log.Info("Ingress not found")
+			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		log.Error(err, "Error fetching Ingress")
+		return ctrl.Result{}, err
 	}
 
 	ann := ingress.GetAnnotations()
@@ -71,26 +73,70 @@ func (r *IngressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		ann = make(map[string]string)
 	}
 
-	protected := ann[annotations.ProtectedIngressAnnotation] == "true"
-	var updatedAnn map[string]string
-	var changed bool
-	var err error
+	ingressConfigName, protected := ann[annotations.IngressConfigNameAnnotation]
+	changed := false
 
 	if protected {
-		updatedAnn, changed, err = r.handleProtectedIngress(ctx, ann)
-	} else {
-		updatedAnn, changed, err = r.cleanupConfig(ann)
-	}
+		var ingressConfig v1alpha1.IngressConfig
+		key := types.NamespacedName{Namespace: r.Environment.OperatorNamespace, Name: ingressConfigName}
+		if err := r.Get(ctx, key, &ingressConfig); err != nil {
+			if apierrors.IsNotFound(err) {
+				log.Info("Specified IngressConfig not found in operator namespace; skipping update", "ingressConfigName", ingressConfigName)
+				return ctrl.Result{}, nil
+			}
+			log.Error(err, "Error fetching IngressConfig", "ingressConfigName", ingressConfigName)
+			return ctrl.Result{}, err
+		}
 
-	if err != nil {
-		return ctrl.Result{}, err
+		if ingressConfig.Status.SpecHash != ann[annotations.IngressConfigSpecHash] {
+			desiredSnippet := buildNginxConfig(ingressConfig.Spec.BlockedUserAgents)
+			currentSnippet := ann[annotations.IngressServerSnippet]
+			updatedSnippet, err := updateServerSnippet(currentSnippet, desiredSnippet)
+			if err != nil {
+				log.Error(err, "Failed to create updated server-snippet annotation configuration")
+				return ctrl.Result{}, err
+			}
+
+			ann[annotations.IngressConfigSpecHash] = ingressConfig.Status.SpecHash
+			ann[annotations.IngressServerSnippet] = updatedSnippet
+			changed = true
+		}
+	} else {
+		// Ingress is not protected or is being cleaned up
+		// Remove all operator-added configuration
+		log.Info("Starting cleanup operation for Ingress")
+
+		if currentSnippet, ok := ann[annotations.IngressServerSnippet]; ok {
+			cleaned, err := updateServerSnippet(currentSnippet, "")
+			if err != nil {
+				log.Error(err, "Failed cleaning Ingress server-snippet annotation")
+				return ctrl.Result{}, err
+			}
+
+			if cleaned == "" {
+				delete(ann, annotations.IngressServerSnippet)
+			} else {
+				ann[annotations.IngressServerSnippet] = cleaned
+			}
+
+			changed = true
+		}
+
+		if _, exists := ann[annotations.IngressConfigNameAnnotation]; exists {
+			delete(ann, annotations.IngressConfigNameAnnotation)
+			changed = true
+		}
+
+		if _, exists := ann[annotations.IngressConfigSpecHash]; exists {
+			delete(ann, annotations.IngressConfigSpecHash)
+			changed = true
+		}
 	}
 
 	if changed {
-		updatedAnn[annotations.LastUpdatedAnnotation] = metav1.Now().Add(2 * time.Second).UTC().Format(time.RFC3339)
-		ingress.SetAnnotations(updatedAnn)
+		ingress.SetAnnotations(ann)
 		if err := r.Update(ctx, &ingress); err != nil {
-			log.Error(err, "failed updating Ingress annotations")
+			log.Error(err, "Failed updating Ingress annotations")
 			return ctrl.Result{}, err
 		}
 		log.Info("Ingress annotations updated successfully")
@@ -101,107 +147,7 @@ func (r *IngressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, nil
 }
 
-func (r *IngressReconciler) cleanupConfig(ann map[string]string) (map[string]string, bool, error) {
-	log := ctrl.Log.WithName("cleaning")
-	changed := false
-
-	if current, ok := ann[annotations.IngressServerSnippet]; ok {
-		log.Info("Started cleaning operation for Ingress")
-		cleaned, err := updateAnnotation(current, "")
-		if err != nil {
-			log.Error(err, "failed cleaning Ingress snippet annotation")
-			return ann, false, err
-		}
-		if cleaned == "" {
-			delete(ann, annotations.IngressServerSnippet)
-		} else {
-			ann[annotations.IngressServerSnippet] = cleaned
-		}
-		changed = true
-	}
-
-	if _, ok := ann[annotations.IngressConfigNameAnnotation]; ok {
-		delete(ann, annotations.IngressConfigNameAnnotation)
-		changed = true
-	}
-
-	return ann, changed, nil
-}
-
-func (r *IngressReconciler) handleProtectedIngress(ctx context.Context, ann map[string]string) (map[string]string, bool, error) {
-	log := ctrl.Log.WithName("protected")
-
-	cfgName, ok := ann[annotations.IngressConfigNameAnnotation]
-	if !ok {
-		log.Info(
-			"Skipping protected Ingress without config name",
-			"annotation", annotations.IngressConfigNameAnnotation,
-		)
-		return ann, false, nil
-	}
-
-	var cfg v1alpha1.IngressConfig
-	key := types.NamespacedName{Namespace: r.Environment.OperatorNamespace, Name: cfgName}
-	if err := r.Get(ctx, key, &cfg); err != nil {
-		if apierrors.IsNotFound(err) {
-			log.Info("Specified IngressConfig not found in operator namespace; skipping update", "ingressConfigName", cfgName)
-			return ann, false, nil
-		}
-		log.Error(err, "Error fetching IngressConfig", "ingressConfigName", cfgName)
-		return ann, false, err
-	}
-
-	return r.updateIngressConfig(ann, cfg.Spec.BlockedUserAgents)
-}
-
-func (r *IngressReconciler) updateIngressConfig(ann map[string]string, blockedUserAgents []string) (map[string]string, bool, error) {
-	log := ctrl.Log.WithName("updateConfig")
-	changed := false
-
-	desired := buildNginxConfig(blockedUserAgents)
-	current := ann[annotations.IngressServerSnippet]
-
-	updated, err := updateAnnotation(current, desired)
-	if err != nil {
-		log.Error(
-			err,
-			"Marker mismatch detect in current config; manual cleanup of all operator added configuration for the Ingress is required",
-		)
-		return ann, false, err
-	}
-
-	if updated != current {
-		if updated == "" {
-			delete(ann, annotations.IngressServerSnippet)
-		} else {
-			ann[annotations.IngressServerSnippet] = updated
-		}
-		changed = true
-	}
-
-	return ann, changed, nil
-}
-
-// SetupWithManager sets up the controller with the Manager.
 func (r *IngressReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if err := mgr.GetFieldIndexer().IndexField(
-		context.Background(),
-		&networkingv1.Ingress{},
-		fmt.Sprintf("metadata.annotations.%s", annotations.ProtectedIngressAnnotation),
-		func(rawObj client.Object) []string {
-			ingress := rawObj.(*networkingv1.Ingress)
-			protectionEnabled := ingress.GetAnnotations()[annotations.ProtectedIngressAnnotation]
-
-			if protectionEnabled == "" {
-				return nil
-			}
-
-			return []string{protectionEnabled}
-		},
-	); err != nil {
-		return err
-	}
-
 	if err := mgr.GetFieldIndexer().IndexField(
 		context.Background(),
 		&networkingv1.Ingress{},
@@ -209,18 +155,31 @@ func (r *IngressReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		func(rawObj client.Object) []string {
 			ingress := rawObj.(*networkingv1.Ingress)
 			ingressConfigName := ingress.GetAnnotations()[annotations.IngressConfigNameAnnotation]
-
 			if ingressConfigName == "" {
 				return nil
 			}
-
 			return []string{ingressConfigName}
 		},
 	); err != nil {
 		return err
 	}
 
-	// predicate.GenerationChangedPredicate{}
+	// Indexer for checking if IngressConfigName Annotation exists
+	if err := mgr.GetFieldIndexer().IndexField(
+		context.Background(),
+		&networkingv1.Ingress{},
+		HasIngressConfigNameAnnotation,
+		func(rawObj client.Object) []string {
+			ingress := rawObj.(*networkingv1.Ingress)
+			if ingress.GetAnnotations()[annotations.IngressConfigNameAnnotation] != "" {
+				return []string{"true"}
+			}
+			return nil
+		},
+	); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&networkingv1.Ingress{}, builder.WithPredicates(ingressPredicate())).
 		Watches(
@@ -237,29 +196,33 @@ var (
 	endMarker   = fmt.Sprintf("# %s operator: Configuration end", v1alpha1.GroupVersion.Group)
 )
 
-func updateAnnotation(currentConf, updatedConf string) (string, error) {
+func updateServerSnippet(currentConf, updatedConf string) (string, error) {
 	startMarkerCount := strings.Count(currentConf, startMarker)
 	endMarkerCount := strings.Count(currentConf, endMarker)
 
 	if startMarkerCount != endMarkerCount || startMarkerCount > 1 && endMarkerCount > 1 {
 		return "", fmt.Errorf(
 			"mismatched or wrong number of start and end markers for kube-botblocker config. "+
-				"Expected 1 start and end markers, got %d start and %d end markers",
+				"Expected 1 start and end markers, got %d start and %d end markers. Manual action required",
 			startMarkerCount, endMarkerCount,
 		)
 	}
 
 	pattern := regexp.MustCompile("(?sm)^" + regexp.QuoteMeta(startMarker) + ".*?" + regexp.QuoteMeta(endMarker) + "$")
 
-	// If updatedConf is empty, remove the entire block that matches the pattern
 	if updatedConf == "" {
-		return pattern.ReplaceAllLiteralString(currentConf, ""), nil
+		result := pattern.ReplaceAllLiteralString(currentConf, "")
+		result = strings.TrimSpace(result)
+		return result, nil
 	}
 
 	// Add updatedConf if currentConf is empty or doesn't have a valid kube-botblocker config
 	// with start and end markers
 	if !pattern.MatchString(currentConf) {
-		return currentConf + fmt.Sprint("\n"+updatedConf), nil
+		if currentConf == "" {
+			return updatedConf, nil
+		}
+		return currentConf + "\n\n" + updatedConf, nil
 	}
 
 	return pattern.ReplaceAllLiteralString(currentConf, updatedConf), nil
@@ -268,12 +231,14 @@ func updateAnnotation(currentConf, updatedConf string) (string, error) {
 func buildNginxConfig(userAgents []string) string {
 	var sb strings.Builder
 	pattern := strings.Join(userAgents, "|")
+
 	sb.WriteString(startMarker)
 	sb.WriteString("# Configuration added by kube-botblocker operator. Do not edit any of this manually\n")
 	sb.WriteString(fmt.Sprintf(`if ($http_user_agent ~* "(%s)") {`, pattern))
 	sb.WriteString("\n  return 403;\n")
 	sb.WriteString("}\n")
 	sb.WriteString(endMarker)
+
 	return sb.String()
 }
 
@@ -288,7 +253,7 @@ func (r *IngressReconciler) ReconcileFanOut(ctx context.Context, obj client.Obje
 	if err := r.List(
 		ctx,
 		&ingressList,
-		&client.MatchingFields{fmt.Sprintf("metadata.annotations.%s", annotations.ProtectedIngressAnnotation): "true"},
+		&client.MatchingFields{HasIngressConfigNameAnnotation: "true"},
 	); err != nil {
 		fanOutLog.Error(err, "Failed to fetch list of protected ingresses")
 		return requests
@@ -306,6 +271,7 @@ func (r *IngressReconciler) ReconcileFanOut(ctx context.Context, obj client.Obje
 		}
 		requests = append(requests, request)
 	}
+
 	return requests
 }
 
@@ -332,27 +298,23 @@ func ingressConfigPredicate() predicate.Predicate {
 func ingressPredicate() predicate.Predicate {
 	return predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
-			return checkIngressAnnotations(e.Object)
+			return e.Object.(*networkingv1.Ingress).GetAnnotations()[annotations.IngressConfigNameAnnotation] != ""
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			result := false
-			annOld := e.ObjectOld.GetAnnotations()[annotations.ProtectedIngressAnnotation]
-			annNew := e.ObjectNew.GetAnnotations()[annotations.ProtectedIngressAnnotation]
-			if annOld == "true" || annNew == "true" {
-				result = true
-			}
-			return result
+			annOld := e.ObjectOld.GetAnnotations()
+			annNew := e.ObjectNew.GetAnnotations()
+
+			configNameOld := annOld[annotations.IngressConfigNameAnnotation]
+			configNameNew := annNew[annotations.IngressConfigNameAnnotation]
+
+			specHashOld := annOld[annotations.IngressConfigSpecHash]
+			specHashNew := annNew[annotations.IngressConfigSpecHash]
+
+			// Reconcile if annotation was added, removed, or changed
+			return configNameOld != configNameNew || specHashOld != specHashNew
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return checkIngressAnnotations(e.Object)
-		},
-		GenericFunc: func(e event.GenericEvent) bool {
-			return checkIngressAnnotations(e.Object)
+			return false
 		},
 	}
-}
-
-func checkIngressAnnotations(obj client.Object) bool {
-	objAnnotations := obj.(*networkingv1.Ingress).GetAnnotations()
-	return objAnnotations[annotations.ProtectedIngressAnnotation] == "true" && objAnnotations[annotations.IngressConfigNameAnnotation] != ""
 }
