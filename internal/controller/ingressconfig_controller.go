@@ -30,10 +30,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/GustavoJST/kube-botblocker/api/v1alpha1"
 	"github.com/GustavoJST/kube-botblocker/pkg/annotations"
+	"github.com/GustavoJST/kube-botblocker/pkg/indexer"
 )
 
 // IngressConfigReconciler reconciles a IngressConfig object
@@ -61,10 +63,31 @@ func (r *IngressConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			return ctrl.Result{}, err
 		}
 		ingressConfig.Status.SpecHash = specHash
-		return ctrl.Result{Requeue: true}, nil
 	}
 
-	// Check if lastUpdated is nil or Generation changed
+	finalizer := "batch.tutorial.kubebuilder.io/finalizer"
+
+	if ingressConfig.DeletionTimestamp.IsZero() {
+		if !controllerutil.ContainsFinalizer(&ingressConfig, finalizer) {
+			controllerutil.AddFinalizer(&ingressConfig, finalizer)
+			if err := r.Update(ctx, &ingressConfig); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	} else {
+		if controllerutil.ContainsFinalizer(&ingressConfig, finalizer) {
+			if err := r.cleanupConfig(ctx, ingressConfig); err != nil {
+				return ctrl.Result{}, err
+			}
+
+			controllerutil.RemoveFinalizer(&ingressConfig, finalizer)
+			if err := r.Update(ctx, &ingressConfig); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+		return ctrl.Result{}, nil
+	}
+
 	if ingressConfig.Status.LastUpdated == nil || ingressConfig.Generation != ingressConfig.Status.ObservedGeneration {
 		now := metav1.NewTime(time.Now().UTC())
 		specHash, err := hashObj(ingressConfig.Spec)
@@ -86,7 +109,7 @@ func (r *IngressConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			LastTransitionTime: now,
 		})
 
-		// Update status so the ingress reconcile fanout can begin
+		// Update status with new SpecHash so the Ingress reconcile fanout can begin
 		if err := r.Status().Update(ctx, &ingressConfig); err != nil {
 			log.Error(err, "Failed to update IngresConfig status")
 			return ctrl.Result{}, err
@@ -99,7 +122,7 @@ func (r *IngressConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if err := r.List(
 		ctx,
 		&ingressList,
-		&client.MatchingFields{fmt.Sprintf("metadata.annotations.%s", annotations.IngressConfigNameAnnotation): ingressConfig.Name},
+		&client.MatchingFields{annotations.IngressConfigNameAnnotation: ingressConfig.Name},
 	); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -161,4 +184,51 @@ func hashObj(spec any) (string, error) {
 	}
 	hash := sha256.Sum256(jsonBytes)
 	return hex.EncodeToString(hash[:]), nil
+}
+
+func (r *IngressConfigReconciler) cleanupConfig(ctx context.Context, ingressConfig v1alpha1.IngressConfig) error {
+	log := log.FromContext(ctx).WithName("configCleanup")
+
+	var ingressList networkingv1.IngressList
+	if err := r.List(
+		ctx,
+		&ingressList,
+		&client.MatchingFields{annotations.IngressConfigNameAnnotation: ingressConfig.Name},
+	); err != nil {
+		return err
+	}
+
+	// Talvez tenha rate limit, testar com bastante ingresses
+	for _, ing := range ingressList.Items {
+		patch := client.MergeFrom(ing.DeepCopy())
+		delete(ing.GetAnnotations(), annotations.IngressConfigNameAnnotation)
+		if err := r.Patch(ctx, &ing, patch); err != nil {
+			log.Error(err, "Error cleaning up Ingress annotation", "ingress", ing)
+			return err
+		}
+	}
+
+	start := time.Now()
+
+	for {
+		time.Sleep(10 * time.Second)
+		now := time.Now()
+		if now.Sub(start) >= 2*time.Minute {
+			return fmt.Errorf("timed out waiting for ingress cleanup")
+		}
+
+		if err := r.List(
+			ctx,
+			&ingressList,
+			&client.MatchingFields{indexer.HasIngressConfigSpecHash: "true"},
+		); err != nil {
+			return err
+		}
+
+		if len(ingressList.Items) == 0 {
+			break
+		}
+	}
+
+	return nil
 }
