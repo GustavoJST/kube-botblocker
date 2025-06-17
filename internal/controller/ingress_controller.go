@@ -37,6 +37,7 @@ import (
 	"github.com/GustavoJST/kube-botblocker/api/v1alpha1"
 	"github.com/GustavoJST/kube-botblocker/pkg/annotations"
 	"github.com/GustavoJST/kube-botblocker/pkg/environment"
+	"github.com/GustavoJST/kube-botblocker/pkg/indexer"
 )
 
 // IngressReconciler reconciles a Ingress object
@@ -45,10 +46,6 @@ type IngressReconciler struct {
 	Scheme      *runtime.Scheme
 	Environment *environment.OperatorEnv
 }
-
-var (
-	HasIngressConfigNameAnnotation = "HasIngressConfigNameAnnotation"
-)
 
 // +kubebuilder:rbac:groups=kube-botblocker.github.io,resources=ingressconfigs,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;patch;update;watch
@@ -100,12 +97,11 @@ func (r *IngressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			ann[annotations.IngressConfigSpecHash] = ingressConfig.Status.SpecHash
 			ann[annotations.IngressServerSnippet] = updatedSnippet
 			changed = true
+
 		}
 	} else {
 		// Ingress is not protected or is being cleaned up
 		// Remove all operator-added configuration
-		log.Info("Starting cleanup operation for Ingress")
-
 		if currentSnippet, ok := ann[annotations.IngressServerSnippet]; ok {
 			cleaned, err := updateServerSnippet(currentSnippet, "")
 			if err != nil {
@@ -131,17 +127,19 @@ func (r *IngressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			delete(ann, annotations.IngressConfigSpecHash)
 			changed = true
 		}
+
+		if changed {
+			log.Info("Cleaning Ingress")
+		}
 	}
 
 	if changed {
 		ingress.SetAnnotations(ann)
 		if err := r.Update(ctx, &ingress); err != nil {
-			log.Error(err, "Failed updating Ingress annotations")
+			log.Error(err, "Failed updating Ingress")
 			return ctrl.Result{}, err
 		}
-		log.Info("Ingress annotations updated successfully")
-	} else {
-		log.Info("No changes detected; skipping update")
+		log.Info("Ingress updated successfully")
 	}
 
 	return ctrl.Result{}, nil
@@ -151,7 +149,7 @@ func (r *IngressReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(
 		context.Background(),
 		&networkingv1.Ingress{},
-		fmt.Sprintf("metadata.annotations.%s", annotations.IngressConfigNameAnnotation),
+		annotations.IngressConfigNameAnnotation,
 		func(rawObj client.Object) []string {
 			ingress := rawObj.(*networkingv1.Ingress)
 			ingressConfigName := ingress.GetAnnotations()[annotations.IngressConfigNameAnnotation]
@@ -164,14 +162,30 @@ func (r *IngressReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	// Indexer for checking if IngressConfigName Annotation exists
+	// Indexer for checking if IngressConfigName annotation exists
 	if err := mgr.GetFieldIndexer().IndexField(
 		context.Background(),
 		&networkingv1.Ingress{},
-		HasIngressConfigNameAnnotation,
+		indexer.HasIngressConfigNameKey,
 		func(rawObj client.Object) []string {
 			ingress := rawObj.(*networkingv1.Ingress)
 			if ingress.GetAnnotations()[annotations.IngressConfigNameAnnotation] != "" {
+				return []string{"true"}
+			}
+			return nil
+		},
+	); err != nil {
+		return err
+	}
+
+	// Indexer for checking if IngressConfigSpecHash annotation exists
+	if err := mgr.GetFieldIndexer().IndexField(
+		context.Background(),
+		&networkingv1.Ingress{},
+		indexer.HasIngressConfigSpecHash,
+		func(rawObj client.Object) []string {
+			ingress := rawObj.(*networkingv1.Ingress)
+			if ingress.GetAnnotations()[annotations.IngressConfigSpecHash] != "" {
 				return []string{"true"}
 			}
 			return nil
@@ -253,9 +267,9 @@ func (r *IngressReconciler) ReconcileFanOut(ctx context.Context, obj client.Obje
 	if err := r.List(
 		ctx,
 		&ingressList,
-		&client.MatchingFields{HasIngressConfigNameAnnotation: "true"},
+		&client.MatchingFields{indexer.HasIngressConfigNameKey: "true"},
 	); err != nil {
-		fanOutLog.Error(err, "Failed to fetch list of protected ingresses")
+		fanOutLog.Error(err, "Failed to fetch list of protected Ingresses")
 		return requests
 	}
 
@@ -310,7 +324,6 @@ func ingressPredicate() predicate.Predicate {
 			specHashOld := annOld[annotations.IngressConfigSpecHash]
 			specHashNew := annNew[annotations.IngressConfigSpecHash]
 
-			// Reconcile if annotation was added, removed, or changed
 			return configNameOld != configNameNew || specHashOld != specHashNew
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
