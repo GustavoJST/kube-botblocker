@@ -88,7 +88,7 @@ func (r *IngressConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
-	if ingressConfig.Status.LastUpdated == nil || ingressConfig.Generation != ingressConfig.Status.ObservedGeneration {
+	if ingressConfig.Generation != ingressConfig.Status.ObservedGeneration {
 		now := metav1.NewTime(time.Now().UTC())
 		specHash, err := hashObj(ingressConfig.Spec)
 		if err != nil {
@@ -128,6 +128,24 @@ func (r *IngressConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	total := int32(len(ingressList.Items))
+
+	if total == 0 {
+		now := metav1.NewTime(time.Now().UTC())
+		meta.SetStatusCondition(&ingressConfig.Status.Conditions, metav1.Condition{
+			Type:               v1alpha1.ConditionTypeUpdateSucceeded,
+			Status:             metav1.ConditionTrue,
+			Reason:             v1alpha1.ConditionReasonReconciliationSuccessful,
+			Message:            "No associated Ingresses to update",
+			LastTransitionTime: now,
+		})
+		log.Info("No associated Ingresses to update")
+		if err := r.Status().Update(ctx, &ingressConfig); err != nil {
+			log.Error(err, "Failed to update IngresConfig status")
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
+	}
+
 	updated := int32(0)
 	for _, ing := range ingressList.Items {
 		ann := ing.GetAnnotations()

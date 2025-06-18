@@ -33,19 +33,19 @@ type IngressConfigSpec struct {
 type ProtectedIngressStats struct {
 	// Total number of Ingresses that are configured to use this IngressConfig.
 	// +optional
-	Total int32 `json:"total,omitempty"`
+	Total int32 `json:"total"`
 
 	// Number of Ingresses that have been successfully reconciled with the latest IngressConfig spec.
 	// This count is reset to 0 when the IngressConfig spec changes and increments as Ingresses are updated.
 	// +optional
-	Updated int32 `json:"updated,omitempty"`
+	Updated int32 `json:"updated"`
 }
 
 // IngressConfigStatus defines the observed state of IngressConfig.
 type IngressConfigStatus struct {
 	// Statistics about the reconcile process for IngressConfig.
 	// +optional
-	ProtectedIngress ProtectedIngressStats `json:"protectedIngress,omitempty"`
+	ProtectedIngress ProtectedIngressStats `json:"protectedIngress"`
 
 	// LastUpdated is the timestamp when the IngressConfig spec was last modified,
 	// triggering a potential reconciliation of associated Ingresses.
