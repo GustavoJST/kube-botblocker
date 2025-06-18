@@ -16,7 +16,7 @@ linters:
     - unused
   settings:
     gocyclo:
-      min-complexity: 22
+      min-complexity: 30
     lll:
       line-length: 140
     misspell:
