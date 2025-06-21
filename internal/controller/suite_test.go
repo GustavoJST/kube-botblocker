@@ -27,10 +27,14 @@ import (
 
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"github.com/GustavoJST/kube-botblocker/api/v1alpha1"
+	"github.com/GustavoJST/kube-botblocker/pkg/environment"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -43,6 +47,9 @@ var (
 	testEnv   *envtest.Environment
 	cfg       *rest.Config
 	k8sClient client.Client
+
+	currentNsOnlyEnv = "CURRENT_NAMESPACE_ONLY"
+	OperatorNsEnv    = "OPERATOR_NAMESPACE"
 )
 
 func TestControllers(t *testing.T) {
@@ -57,6 +64,9 @@ var _ = BeforeSuite(func() {
 	ctx, cancel = context.WithCancel(context.TODO())
 
 	var err error
+	err = v1alpha1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
 	// +kubebuilder:scaffold:scheme
 
 	By("bootstrapping test environment")
