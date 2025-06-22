@@ -36,13 +36,11 @@ configuration, including inside ingresses.
 
 2. If `.cleanupJob.enabled: false`, run the command below **BEFORE** uninstalling the helm chart:
 
-```bash
-kubectl annotate --all -A kube-botblocker.github.io/ingressConfigName-
-```
+    ```bash
+    kubectl annotate --all -A kube-botblocker.github.io/ingressConfigName-
+    ```
 
-Then, confirm all configuration from associated ingresses have been removed and proceed to chart removal with `helm uninstall`
-
-Keep in mind that this process will remove only kube-botblocker related configuration from the server-snippet annotation inside ingresses.
+    Confirm all configuration from associated ingresses have been removed and delete any IngressConfig objects left. Then, proceed to chart removal with `helm uninstall`
 
 Not doing the process mentioned above will leave you with ingresses that have kube-botblocker related annotations and configuration **even after the chart is uninstalled**.
 
@@ -80,6 +78,7 @@ Lastly, if `crds.enabled: false` (the default), remove the kube-botblocker CRDs 
 | image.repository | string | `"quay.io/gustavojst/kube-botblocker"` | Repository path to the controller image |
 | image.tag | string | `""` | Overrides the image tag whose default is the chart appVersion |
 | imagePullSecrets | list | `[]` | Image pull secrets for pulling images from the registry |
+| ingressConfigs | list | `[]` | List of IngressConfig resources to be created with the helm chart. Note that if .cleanupJob.enabled is false, these resources will not be deleted when the chart is uninstalled and will need manual cleanup or wait until deletionTimestamp of finalizer to expire |
 | livenessProbe | object | `{"httpGet":{"path":"/healthz","port":8081},"initialDelaySeconds":15,"periodSeconds":20}` | livenessProbe to add to the controller container |
 | metrics.enabled | bool | `false` | Enables exposure of the operator internal metrics in prometheus format |
 | metrics.port | int | `8443` | Configures the operator metrics port |

@@ -36,13 +36,11 @@ configuration, including inside ingresses.
 
 2. If `.cleanupJob.enabled: false`, run the command below **BEFORE** uninstalling the helm chart:
 
-```bash
-kubectl annotate --all -A kube-botblocker.github.io/ingressConfigName-
-```
+    ```bash
+    kubectl annotate --all -A kube-botblocker.github.io/ingressConfigName-
+    ```
 
-Then, confirm all configuration from associated ingresses have been removed and proceed to chart removal with `helm uninstall`
-
-Keep in mind that this process will remove only kube-botblocker related configuration from the server-snippet annotation inside ingresses.
+    Confirm all configuration from associated ingresses have been removed and delete any IngressConfig objects left. Then, proceed to chart removal with `helm uninstall`
 
 Not doing the process mentioned above will leave you with ingresses that have kube-botblocker related annotations and configuration **even after the chart is uninstalled**.
 

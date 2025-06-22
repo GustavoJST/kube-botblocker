@@ -1,0 +1,24 @@
+{{- $helmLabels := include "kube-botblocker-operator.labels" . -}}
+{{- range .Values.ingressConfigs -}}
+{{- if eq (len .blockedUserAgents) 0 -}}
+{{- fail "blockedUserAgents can't be empty" -}}
+{{- end -}}
+---
+apiVersion: kube-botblocker.github.io/v1alpha1
+kind: IngressConfig
+metadata:
+  name: {{ .name | quote }}
+  namespace: {{ $.Release.Namespace}}
+  labels:
+    {{- $helmLabels | nindent 4 }}
+    {{- with .labels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- with .annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  blockedUserAgents:
+    {{- toYaml .blockedUserAgents | nindent 4 }}
+{{- end -}}
