@@ -27,6 +27,20 @@ rules:
     - update
     - patch
 - apiGroups:
+  - kube-botblocker.github.io
+  resources:
+  - ingressconfigs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - kube-botblocker.github.io
+  resources:
+  - ingressconfigs/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - networking.k8s.io
   resources:
   - ingresses
