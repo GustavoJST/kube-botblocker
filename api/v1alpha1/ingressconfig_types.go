@@ -43,33 +43,32 @@ type ProtectedIngressStats struct {
 
 // IngressConfigStatus defines the observed state of IngressConfig.
 type IngressConfigStatus struct {
-	// Statistics about the reconcile process for IngressConfig.
-	// +optional
-	ProtectedIngress ProtectedIngressStats `json:"protectedIngress"`
-
 	// LastUpdated is the timestamp when the IngressConfig spec was last modified,
 	// triggering a potential reconciliation of associated Ingresses.
 	// This field is updated when the .spec of IngressConfig changes.
-	// +optional
 	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
+
+	// LastConditionStatus is the status of the last Condition applied to a IngressConfig object
+	LastConditionStatus metav1.ConditionStatus `json:"lastConditionStatus,omitempty"`
+
+	// LastConditionStatus is the message of the last Condition applied to a IngressConfig object
+	LastConditionMessage string `json:"lastConditionMessage,omitempty"`
 
 	// Conditions provide observations of the IngressConfig's state.
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 
 	// SpecHash is the SHA256 hash of the .spec field of the IngressConfig.
-	// +optional
 	SpecHash string `json:"specHash,omitempty"`
 
 	// ObservedGeneration is the most recent generation observed for this IngressConfig.
 	// It corresponds to the IngressConfig's generation.
-	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"UpdateSucceeded\")].status"
-// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[?(@.type==\"UpdateSucceeded\")].message"
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.lastConditionStatus"
+// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.lastConditionMessage"
 // +kubebuilder:printcolumn:name="Last Updated",type="date",JSONPath=".status.lastUpdated"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
@@ -99,4 +98,7 @@ const (
 	ConditionTypeUpdateSucceeded            string = "UpdateSucceeded"
 	ConditionReasonReconciliationInProgress string = "ReconciliationInProgress"
 	ConditionReasonReconciliationSuccessful string = "ReconciliationSuccessful"
+
+	ConditionTypeCleanupSucceeded    string = "CleanupSucceeded"
+	ConditionReasonCleanupInProgress string = "CleanupInProgress"
 )

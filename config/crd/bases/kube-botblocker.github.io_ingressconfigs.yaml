@@ -15,10 +15,10 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .status.conditions[?(@.type=="UpdateSucceeded")].status
+    - jsonPath: .status.lastConditionStatus
       name: Ready
       type: string
-    - jsonPath: .status.conditions[?(@.type=="UpdateSucceeded")].message
+    - jsonPath: .status.lastConditionMessage
       name: Status
       type: string
     - jsonPath: .status.lastUpdated
@@ -124,6 +124,14 @@ spec:
                   - type
                   type: object
                 type: array
+              lastConditionMessage:
+                description: LastConditionStatus is the message of the last Condition
+                  applied to a IngressConfig object
+                type: string
+              lastConditionStatus:
+                description: LastConditionStatus is the status of the last Condition
+                  applied to a IngressConfig object
+                type: string
               lastUpdated:
                 description: |-
                   LastUpdated is the timestamp when the IngressConfig spec was last modified,
@@ -137,21 +145,6 @@ spec:
                   It corresponds to the IngressConfig's generation.
                 format: int64
                 type: integer
-              protectedIngress:
-                description: Statistics about the reconcile process for IngressConfig.
-                properties:
-                  total:
-                    description: Total number of Ingresses that are configured to
-                      use this IngressConfig.
-                    format: int32
-                    type: integer
-                  updated:
-                    description: |-
-                      Number of Ingresses that have been successfully reconciled with the latest IngressConfig spec.
-                      This count is reset to 0 when the IngressConfig spec changes and increments as Ingresses are updated.
-                    format: int32
-                    type: integer
-                type: object
               specHash:
                 description: SpecHash is the SHA256 hash of the .spec field of the
                   IngressConfig.

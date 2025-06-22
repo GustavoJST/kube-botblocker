@@ -21,7 +21,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	networkingv1 "k8s.io/api/networking/v1"
@@ -56,15 +55,6 @@ func (r *IngressConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	if ingressConfig.Status.SpecHash == "" {
-		specHash, err := hashObj(ingressConfig.Spec)
-		if err != nil {
-			log.Error(err, "Failed hashing ingressConfig Spec")
-			return ctrl.Result{}, err
-		}
-		ingressConfig.Status.SpecHash = specHash
-	}
-
 	finalizer := "batch.tutorial.kubebuilder.io/finalizer"
 
 	if ingressConfig.DeletionTimestamp.IsZero() {
@@ -76,8 +66,13 @@ func (r *IngressConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	} else {
 		if controllerutil.ContainsFinalizer(&ingressConfig, finalizer) {
-			if err := r.cleanupConfig(ctx, ingressConfig); err != nil {
+			requeue, err := r.cleanupConfig(ctx, ingressConfig)
+			if err != nil {
 				return ctrl.Result{}, err
+			}
+
+			if requeue {
+				return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 			}
 
 			controllerutil.RemoveFinalizer(&ingressConfig, finalizer)
@@ -88,7 +83,7 @@ func (r *IngressConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
-	if ingressConfig.Generation != ingressConfig.Status.ObservedGeneration {
+	if ingressConfig.Status.SpecHash == "" || ingressConfig.Generation != ingressConfig.Status.ObservedGeneration {
 		now := metav1.NewTime(time.Now().UTC())
 		specHash, err := hashObj(ingressConfig.Spec)
 		if err != nil {
@@ -97,21 +92,20 @@ func (r *IngressConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 
 		ingressConfig.Status.LastUpdated = &now
-		ingressConfig.Status.ProtectedIngress.Total = 0
-		ingressConfig.Status.ProtectedIngress.Updated = 0
 		ingressConfig.Status.ObservedGeneration = ingressConfig.Generation
 		ingressConfig.Status.SpecHash = specHash
-		meta.SetStatusCondition(&ingressConfig.Status.Conditions, metav1.Condition{
+		newCondition := metav1.Condition{
 			Type:               v1alpha1.ConditionTypeUpdateSucceeded,
 			Status:             metav1.ConditionFalse,
 			Reason:             v1alpha1.ConditionReasonReconciliationInProgress,
 			Message:            "Waiting for all Ingresses to be updated",
 			LastTransitionTime: now,
-		})
+		}
+		setStatusCondition(&ingressConfig, newCondition)
 
 		// Update status with new SpecHash so the Ingress reconcile fanout can begin
 		if err := r.Status().Update(ctx, &ingressConfig); err != nil {
-			log.Error(err, "Failed to update IngresConfig status")
+			log.Error(err, "Failed to update IngressConfig status during Ingress fanout")
 			return ctrl.Result{}, err
 		}
 		log.Info("Rolling update on all associated Ingresses")
@@ -131,16 +125,17 @@ func (r *IngressConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	if total == 0 {
 		now := metav1.NewTime(time.Now().UTC())
-		meta.SetStatusCondition(&ingressConfig.Status.Conditions, metav1.Condition{
+		newCondition := metav1.Condition{
 			Type:               v1alpha1.ConditionTypeUpdateSucceeded,
 			Status:             metav1.ConditionTrue,
 			Reason:             v1alpha1.ConditionReasonReconciliationSuccessful,
-			Message:            "No associated Ingresses to update",
+			Message:            "Ready for usage",
 			LastTransitionTime: now,
-		})
+		}
+		setStatusCondition(&ingressConfig, newCondition)
 		log.Info("No associated Ingresses to update")
 		if err := r.Status().Update(ctx, &ingressConfig); err != nil {
-			log.Error(err, "Failed to update IngresConfig status")
+			log.Error(err, "Failed to update IngressConfig status to ready")
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
@@ -154,32 +149,26 @@ func (r *IngressConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
-	if ingressConfig.Status.ProtectedIngress.Total != total || ingressConfig.Status.ProtectedIngress.Updated != updated {
-		ingressConfig.Status.ProtectedIngress.Total = total
-		ingressConfig.Status.ProtectedIngress.Updated = updated
-
-		if total == updated {
-			meta.SetStatusCondition(&ingressConfig.Status.Conditions, metav1.Condition{
-				Type:               v1alpha1.ConditionTypeUpdateSucceeded,
-				Status:             metav1.ConditionTrue,
-				Reason:             v1alpha1.ConditionReasonReconciliationSuccessful,
-				Message:            "All Ingresses successfully reconciled",
-				LastTransitionTime: metav1.Now(),
-			})
-
-			if err := r.Status().Update(ctx, &ingressConfig); err != nil {
-				log.Error(err, "Failed to update IngresConfig status")
-				return ctrl.Result{}, err
-			}
-			log.Info("Finished updating associated Ingresses")
+	if total == updated {
+		newCondition := metav1.Condition{
+			Type:               v1alpha1.ConditionTypeUpdateSucceeded,
+			Status:             metav1.ConditionTrue,
+			Reason:             v1alpha1.ConditionReasonReconciliationSuccessful,
+			Message:            "All Ingresses successfully reconciled",
+			LastTransitionTime: metav1.Now(),
 		}
+		setStatusCondition(&ingressConfig, newCondition)
 	}
 
-	if meta.IsStatusConditionPresentAndEqual(
+	if meta.IsStatusConditionTrue(
 		ingressConfig.Status.Conditions,
 		v1alpha1.ConditionTypeUpdateSucceeded,
-		metav1.ConditionTrue,
 	) {
+		if err := r.Status().Update(ctx, &ingressConfig); err != nil {
+			log.Error(err, "Failed to update IngressConfig status")
+			return ctrl.Result{}, err
+		}
+		log.Info("Finished updating associated Ingresses")
 		return ctrl.Result{}, nil
 	}
 
@@ -204,49 +193,61 @@ func hashObj(spec any) (string, error) {
 	return hex.EncodeToString(hash[:]), nil
 }
 
-func (r *IngressConfigReconciler) cleanupConfig(ctx context.Context, ingressConfig v1alpha1.IngressConfig) error {
+func setStatusCondition(ingressConfig *v1alpha1.IngressConfig, newCondition metav1.Condition) {
+	meta.SetStatusCondition(&ingressConfig.Status.Conditions, newCondition)
+	ingressConfig.Status.LastConditionStatus = newCondition.Status
+	ingressConfig.Status.LastConditionMessage = newCondition.Message
+}
+
+func (r *IngressConfigReconciler) cleanupConfig(ctx context.Context, ingressConfig v1alpha1.IngressConfig) (bool, error) {
 	log := log.FromContext(ctx).WithName("configCleanup")
-
 	var ingressList networkingv1.IngressList
-	if err := r.List(
-		ctx,
-		&ingressList,
-		&client.MatchingFields{annotations.IngressConfigNameAnnotation: ingressConfig.Name},
-	); err != nil {
-		return err
-	}
 
-	// Talvez tenha rate limit, testar com bastante ingresses
-	for _, ing := range ingressList.Items {
-		patch := client.MergeFrom(ing.DeepCopy())
-		delete(ing.GetAnnotations(), annotations.IngressConfigNameAnnotation)
-		if err := r.Patch(ctx, &ing, patch); err != nil {
-			log.Error(err, "Error cleaning up Ingress annotation", "ingress", ing)
-			return err
+	if !meta.IsStatusConditionFalse(ingressConfig.Status.Conditions, v1alpha1.ConditionTypeCleanupSucceeded) {
+		newCondition := metav1.Condition{
+			Type:               v1alpha1.ConditionTypeCleanupSucceeded,
+			Status:             metav1.ConditionFalse,
+			Reason:             v1alpha1.ConditionReasonCleanupInProgress,
+			Message:            "Cleaning configuration before removal",
+			LastTransitionTime: metav1.NewTime(time.Now().UTC()),
 		}
-	}
-
-	start := time.Now()
-
-	for {
-		time.Sleep(10 * time.Second)
-		now := time.Now()
-		if now.Sub(start) >= 2*time.Minute {
-			return fmt.Errorf("timed out waiting for ingress cleanup")
-		}
+		setStatusCondition(&ingressConfig, newCondition)
 
 		if err := r.List(
 			ctx,
 			&ingressList,
-			&client.MatchingFields{indexer.HasIngressConfigSpecHash: "true"},
+			&client.MatchingFields{annotations.IngressConfigNameAnnotation: ingressConfig.Name},
 		); err != nil {
-			return err
+			return false, err
 		}
 
-		if len(ingressList.Items) == 0 {
-			break
+		if err := r.Status().Update(ctx, &ingressConfig); err != nil {
+			log.Error(err, "Failed to update IngressConfig status during cleanup")
+			return false, err
 		}
+
+		for _, ing := range ingressList.Items {
+			patch := client.MergeFrom(ing.DeepCopy())
+			delete(ing.GetAnnotations(), annotations.IngressConfigNameAnnotation)
+			if err := r.Patch(ctx, &ing, patch); err != nil {
+				log.Error(err, "Error cleaning up Ingress annotation", "ingress", ing)
+				return false, err
+			}
+		}
+		return true, nil
 	}
 
-	return nil
+	if err := r.List(
+		ctx,
+		&ingressList,
+		&client.MatchingFields{indexer.HasIngressConfigSpecHash: "true"},
+	); err != nil {
+		return false, err
+	}
+
+	if len(ingressList.Items) != 0 {
+		return true, nil
+	}
+
+	return false, nil
 }
