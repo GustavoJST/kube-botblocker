@@ -9,7 +9,7 @@ sources:
   - https://github.com/GustavoJST/kube-botblocker
 keywords:
   - bots
-  - ai
+  - user-agent
   - block
   - ingress
   - nginx
