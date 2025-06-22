@@ -45,6 +45,26 @@ Not doing the process mentioned above will leave you with ingresses that have ku
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` | Affinity to add to the controller Pod |
+| cleanupJob.affinity | object | `{}` | Assign custom affinity rules to the cleanup job |
+| cleanupJob.annotations | object | `{}` | Defines annotations to add to the cleanup job |
+| cleanupJob.containerSecurityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"readOnlyRootFilesystem":true}` | Defines container-level security context configuration for the cleanup job |
+| cleanupJob.enabled | bool | `true` | Wheter to run a cleanup job do remove all IngressConfig and their configuration present on associated Ingresses on helm chart removal |
+| cleanupJob.env | object | `{}` | Defines the pullPolicy for the cleanup job image |
+| cleanupJob.image.imagePullSecrets | list | `[]` | imagePullSecret for cleanup job |
+| cleanupJob.image.kubectl.pullPolicy | string | `"IfNotPresent"` | Defines the pullPolicy for the cleanup job image |
+| cleanupJob.image.kubectl.registry | string | `"registry.k8s.io"` | Defines the registry used to pull the image for the cleanup job |
+| cleanupJob.image.kubectl.repository | string | `"kubectl"` | Defines the repository used to pull the image for the cleanup job |
+| cleanupJob.image.kubectl.sha | string | `""` | Defines the sha256 to be used during image pull for the cleanup job. Useful for sha256 pinning. An empty value will not use the sha256 during the image pull process |
+| cleanupJob.image.kubectl.tag | string | `""` | Defines the image tag used to pull the image for the cleanup job An empty value will default to the current Kubernetes version |
+| cleanupJob.labels | object | `{}` | Defines labels to add to the cleanup job |
+| cleanupJob.nodeSelector | object | `{}` | Defines node selector for cleanup job |
+| cleanupJob.podAnnotations | object | `{}` | Defines annotations to add to the cleanup job pod |
+| cleanupJob.podLabels | object | `{}` | Defines labels to add to the cleanup job pod |
+| cleanupJob.podSecurityContext | object | `{"fsGroup":65534,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Defines pod-level security context configuration for the cleanup job |
+| cleanupJob.resources | object | `{}` | Defines resources requests and limits for cleanup job pod |
+| cleanupJob.serviceAccount.annotations | object | `{}` | Defines annotations for the cleanup job service account |
+| cleanupJob.serviceAccount.labels | object | `{}` | Defines labels for the cleanup job service account |
+| cleanupJob.tolerations | list | `[]` | Defines tolerations for the cleanup job |
 | crds.enabled | bool | `false` | Whether the helm chart should create and update the CRDs. It is false by default, which implies that the CRDs must be managed independently with the kube-botblocker-operator-crds helm chart. **WARNING**: If set to true, uninstalling the chart (or doing a helm upgrade after setting it back to false) will cause all CRDs and custom resources (IngressConfigs) to be DELETED, causing DATA LOSS |
 | currentNamespaceOnly | bool | `false` | Whether the operator should watch Ingress resources only in its own namespace or not |
 | fullnameOverride | string | `""` | Overrides the chart's computed fullname |
@@ -65,11 +85,11 @@ Not doing the process mentioned above will leave you with ingresses that have ku
 | nodeSelector | object | `{}` | Node selectors to add to the controller Pod |
 | podAnnotations | object | `{}` | Annotations to add to the controller Pod |
 | podLabels | object | `{}` | Labels to add to the controller Pod |
-| podSecurityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}` | Security context to add to controller Pod |
+| podSecurityContext | object | `{}` | Security context to add to controller Pod |
 | rbac.enabled | bool | `true` | Creates the necessary RBAC resources |
 | readinessProbe | object | `{"httpGet":{"path":"/readyz","port":8081},"initialDelaySeconds":5,"periodSeconds":10}` | readinessProbe to add to the controller container |
 | resources | object | `{}` | Resources to add to controller container |
-| securityContext | object | `{"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context to add to controller container |
+| securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context to add to controller container |
 | serviceAccount.annotations | object | `{}` | Annotations to add to the service account |
 | serviceAccount.create | bool | `true` | Specifies whether a service account should be created |
 | serviceAccount.name | string | `""` | The name of the service account to use. If not set and create is true, a name is generated using the fullname template |
