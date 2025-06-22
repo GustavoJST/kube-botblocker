@@ -16,6 +16,6 @@ keywords:
 
 dependencies:
   - name: kube-botblocker-operator-crds
-    version: "0.1.0"
+    version: "0.2.0"
     condition: crds.enabled
     repository: file://../kube-botblocker-operator-crds
