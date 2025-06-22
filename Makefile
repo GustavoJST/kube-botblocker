@@ -41,16 +41,11 @@ help: ## Display this help.
 
 ##@ Development
 
-OPERATOR_NAMESPACE ?= default
-CURRENT_NAMESPACE_ONLY ?= false
-
 ENV ?= \
-	OPERATOR_NAMESPACE=$(OPERATOR_NAMESPACE) \
-	CURRENT_NAMESPACE_ONLY=$(CURRENT_NAMESPACE_ONLY) \
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)"
+	KUBEBUILDER_ASSETS=$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)
 
 TEST_ARGS ?= -coverprofile cover.out
-TEST ?= go test $(TEST_ARGS)
+TEST ?= $(ENV) $(GINKGO) $(TEST_ARGS)
 
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
@@ -69,8 +64,16 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 .PHONY: test
-test: manifests generate fmt vet setup-envtest ## Run tests.
-	$(ENV) $(TEST) $$(go list ./... | grep -v /e2e)
+test: manifests generate fmt vet setup-envtest ginkgo ## Run tests.
+	@printf "\n\n"
+	@echo "=> Running controller tests with CURRENT_NAMESPACE_ONLY=false"
+	CURRENT_NAMESPACE_ONLY=false OPERATOR_NAMESPACE=kube-botblocker $(TEST) --label-filter="CURRENT_NAMESPACE_ONLY=false" ./internal/...
+	@printf "\n\n"
+	@echo "=> Running controller tests with CURRENT_NAMESPACE_ONLY=true"
+	CURRENT_NAMESPACE_ONLY=true OPERATOR_NAMESPACE=kube-botblocker $(TEST) --label-filter="CURRENT_NAMESPACE_ONLY=true" ./internal/...
+	@printf "\n\n"
+	@echo "=> Running remaining tests"
+	CURRENT_NAMESPACE_ONLY=true OPERATOR_NAMESPACE=kube-botblocker $(TEST) ./api/... ./pkg/...
 
 
 # TODO(user): To use a different vendor for e2e tests, modify the setup under 'tests/e2e'.
@@ -182,6 +185,7 @@ CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
 HELM_DOCS ?= $(LOCALBIN)/helm-docs
+GINKGO ?= $(LOCALBIN)/ginkgo
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.5.0
@@ -192,6 +196,7 @@ ENVTEST_VERSION ?= $(shell go list -m -f "{{ .Version }}" sigs.k8s.io/controller
 ENVTEST_K8S_VERSION ?= $(shell go list -m -f "{{ .Version }}" k8s.io/api | awk -F'[v.]' '{printf "1.%d", $$3}')
 GOLANGCI_LINT_VERSION ?= v2.1.5
 HELM_DOCS_VERSION ?= v1.14.2
+GINKGO_VERSION ?= v2.23.3
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
@@ -227,6 +232,11 @@ helm-docs: $(HELM_DOCS) ## Download helm-docs locally if necessary.
 	cd ./deploy/charts && $(HELM_DOCS)
 $(HELM_DOCS): $(LOCALBIN)
 	$(call go-install-tool,$(HELM_DOCS),github.com/norwoodj/helm-docs/cmd/helm-docs,$(HELM_DOCS_VERSION))
+
+.PHONY: ginkgo
+ginkgo: $(GINKGO) ## Download ginkgo locally if necessary.
+$(GINKGO): $(LOCALBIN)
+	$(call go-install-tool,$(GINKGO),github.com/onsi/ginkgo/v2/ginkgo,$(GINKGO_VERSION))
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary
