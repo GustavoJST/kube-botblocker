@@ -29,7 +29,7 @@ cleanupJob:
       registry: registry.k8s.io
       # -- Defines the repository used to pull the image for the cleanup job
       repository: kubectl
-      # -- Defines the image tag used to pull the image for the cleanup job
+      # -- Defines the image tag used to pull the image for the cleanup job.
       # An empty value will default to the current Kubernetes version
       tag: ""
       # -- Defines the sha256 to be used during image pull for the cleanup job. Useful for sha256 pinning.

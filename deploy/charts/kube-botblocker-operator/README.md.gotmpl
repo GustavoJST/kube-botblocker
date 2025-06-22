@@ -23,7 +23,7 @@ There are two ways to install and manage the kube-botblocker helm chart:
     helm install kube-botblocker-operator kube-botblocker/kube-botblocker-operator
     ```
 
-2. Use `--set crds.enabled=true` when installing the chart. This will make chart install and manage the necessary CRDs, aswell as updating it when the chart updates.
+2. Use `--set crds.enabled=true` when installing the chart. This will make the chart install and manage the necessary CRDs, aswell as updating it when the chart updates.
 
    This is not the default as to prevent **data loss**. Read more about it in `crds.enable` in the `values.yaml` table below.
 

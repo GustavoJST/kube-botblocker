@@ -55,7 +55,7 @@ Not doing the process mentioned above will leave you with ingresses that have ku
 | cleanupJob.image.kubectl.registry | string | `"registry.k8s.io"` | Defines the registry used to pull the image for the cleanup job |
 | cleanupJob.image.kubectl.repository | string | `"kubectl"` | Defines the repository used to pull the image for the cleanup job |
 | cleanupJob.image.kubectl.sha | string | `""` | Defines the sha256 to be used during image pull for the cleanup job. Useful for sha256 pinning. An empty value will not use the sha256 during the image pull process |
-| cleanupJob.image.kubectl.tag | string | `""` | Defines the image tag used to pull the image for the cleanup job An empty value will default to the current Kubernetes version |
+| cleanupJob.image.kubectl.tag | string | `""` | Defines the image tag used to pull the image for the cleanup job. An empty value will default to the current Kubernetes version |
 | cleanupJob.labels | object | `{}` | Defines labels to add to the cleanup job |
 | cleanupJob.nodeSelector | object | `{}` | Defines node selector for cleanup job |
 | cleanupJob.podAnnotations | object | `{}` | Defines annotations to add to the cleanup job pod |
