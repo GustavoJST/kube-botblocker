@@ -17,6 +17,24 @@ rbac:
 # -- Whether the operator should watch Ingress resources only in its own namespace or not
 currentNamespaceOnly: false
 
+# -- List of IngressConfig resources to be created with the helm chart.
+# Note that if .cleanupJob.enabled is false, these resources will not be deleted when the chart is uninstalled
+# and will need manual cleanup or wait until deletionTimestamp of finalizer to expire
+ingressConfigs: []
+  # - name: "ingressconfig-example"
+  #   labels: {}
+  #   annotations: {}
+  #   blockedUserAgents:
+  #     - AI2Bot
+  #     - Ai2Bot-Dolma
+  #     - anthropic-ai
+  #     - Bytespider
+  #     - CCBot
+  #     - ChatGPT-User
+  #     - Claude-Web
+  #     - ClaudeBot
+  #     - cohere-ai
+
 cleanupJob:
   # -- Wheter to run a cleanup job do remove all IngressConfig and their configuration present on associated Ingresses
   # on helm chart removal
