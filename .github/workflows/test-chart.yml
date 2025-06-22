@@ -86,6 +86,7 @@ jobs:
 
       - name: Install CRDs helm chart
         run: |
+          helm dependency update ./deploy/charts/kube-botblocker-operator-crds
           helm install kube-botblocker-operator-crds -n kube-botblocker --create-namespace ./deploy/charts/kube-botblocker-operator-crds
 
       - name: Check CRDs helm release status
@@ -94,6 +95,7 @@ jobs:
 
       - name: Install operator helm chart
         run: |
+          helm dependency update ./deploy/charts/kube-botblocker-operator
           helm install kube-botblocker-operator -n kube-botblocker \
             --set image.repository=kube-botblocker \
             --set image.tag=chart-test \
