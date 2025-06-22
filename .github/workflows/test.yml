@@ -3,7 +3,7 @@ name: Tests
 on:
   pull_request:
     paths-ignore:
-      - deploy
+      - deploy/*
 
 jobs:
   test:
