@@ -13,3 +13,12 @@ keywords:
   - block
   - ingress
   - nginx
+kubeVersion: ">=1.26.0-0"
+maintainers:
+  - name: GustavoJST
+    email: gustavo.justo@outlook.com
+annotations:
+  artifacthub.io/operator: "false"
+  artifacthub.io/links: |
+    - name: "Chart source and upstream project"
+      url: https://github.com/GustavoJST/kube-botblocker
