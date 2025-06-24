@@ -47,7 +47,7 @@ if ($http_user_agent ~* "(GoogleBot|AI2Bot|Ai2Bot-Dolma|Amazonbot|omgili|omgilib
 	}
 
 	BeforeAll(func() {
-		k8sClient.Delete(ctx, &namespace)
+		_ = k8sClient.Delete(ctx, &namespace)
 		By("Creating operator namespace")
 		Eventually(func(g Gomega) {
 			g.Expect(k8sClient.Create(ctx, &namespace)).To(Succeed())

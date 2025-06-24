@@ -71,8 +71,7 @@ var (
 )
 
 const (
-	timeout  = 10 * time.Second
-	duration = 10 * time.Second
+	timeout  = 1 * time.Minute
 	interval = 250 * time.Millisecond
 )
 
