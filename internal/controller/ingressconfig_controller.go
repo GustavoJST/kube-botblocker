@@ -63,6 +63,7 @@ func (r *IngressConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			if err := r.Update(ctx, &ingressConfig); err != nil {
 				return ctrl.Result{}, err
 			}
+			return ctrl.Result{Requeue: true}, nil
 		}
 	} else {
 		if controllerutil.ContainsFinalizer(&ingressConfig, finalizer) {
@@ -122,8 +123,17 @@ func (r *IngressConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	total := int32(len(ingressList.Items))
+	var updated int32 = 0
+	for _, ing := range ingressList.Items {
+		ann := ing.GetAnnotations()
+		if ann[annotations.IngressConfigSpecHash] == ingressConfig.Status.SpecHash {
+			updated++
+		}
+	}
 
-	if total == 0 {
+	isReady := meta.IsStatusConditionTrue(ingressConfig.Status.Conditions, v1alpha1.ConditionTypeUpdateSucceeded)
+
+	if total == updated && !isReady {
 		now := metav1.NewTime(time.Now().UTC())
 		newCondition := metav1.Condition{
 			Type:               v1alpha1.ConditionTypeUpdateSucceeded,
@@ -132,8 +142,12 @@ func (r *IngressConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			Message:            "Ready for usage",
 			LastTransitionTime: now,
 		}
+		if total > 0 {
+			newCondition.Message = "All Ingresses successfully reconciled"
+		}
 		setStatusCondition(&ingressConfig, newCondition)
-		log.Info("No associated Ingresses to update")
+
+		log.Info("All associated Ingresses are updated. Setting status to ready.")
 		if err := r.Status().Update(ctx, &ingressConfig); err != nil {
 			log.Error(err, "Failed to update IngressConfig status to ready")
 			return ctrl.Result{}, err
@@ -141,40 +155,12 @@ func (r *IngressConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
-	updated := int32(0)
-	for _, ing := range ingressList.Items {
-		ann := ing.GetAnnotations()
-		if ann[annotations.IngressConfigSpecHash] == ingressConfig.Status.SpecHash {
-			updated++
-		}
+	if total != updated {
+		log.Info("Waiting for Ingress updates to complete", "updated", updated, "total", total)
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
-	if total == updated {
-		newCondition := metav1.Condition{
-			Type:               v1alpha1.ConditionTypeUpdateSucceeded,
-			Status:             metav1.ConditionTrue,
-			Reason:             v1alpha1.ConditionReasonReconciliationSuccessful,
-			Message:            "All Ingresses successfully reconciled",
-			LastTransitionTime: metav1.Now(),
-		}
-		setStatusCondition(&ingressConfig, newCondition)
-	}
-
-	if meta.IsStatusConditionTrue(
-		ingressConfig.Status.Conditions,
-		v1alpha1.ConditionTypeUpdateSucceeded,
-	) {
-		if err := r.Status().Update(ctx, &ingressConfig); err != nil {
-			log.Error(err, "Failed to update IngressConfig status")
-			return ctrl.Result{}, err
-		}
-		log.Info("Finished updating associated Ingresses")
-		return ctrl.Result{}, nil
-	}
-
-	// If there was an update but total != updated, then some Ingresses are still reconciling.
-	// Restart the reconcile to check again until succeeded.
-	return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+	return ctrl.Result{}, nil
 }
 
 func (r *IngressConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
