@@ -1,135 +1,144 @@
 # kube-botblocker
-// TODO(user): Add simple overview of use/purpose
-
-## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+kube-botblocker is a operator that simplifies User-Agent blocking for your ingress-nginx Ingresses.
 
 ## Getting Started
 
 ### Prerequisites
-- go version v1.23.0+
-- docker version 17.03+.
-- kubectl version v1.11.3+.
-- Access to a Kubernetes v1.11.3+ cluster.
+- ingress-nginx controller present in the cluster
+- `allow-snippet-annotations` must be set to `true`. You can set it either on the ingress-nginx controller [configmap](https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/configmap/#allow-snippet-annotations) or through the [helm chart](https://artifacthub.io/packages/helm/ingress-nginx/ingress-nginx?modal=values&path=controller.allowSnippetAnnotations)
+- For ingress-nginx >= 1.12.0, it is also necessary to set `annotations-risk-level` to `Critical`, configurable only through the ingress-nginx [configmap](https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/configmap/#annotations-risk-level)
+  - This is because the [server-snippet](https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/annotations/#server-snippet) annotation used by kube-botblocker is [classified as Critical](https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/annotations-risk/), while the default allowed risk level for annotations was decreased from `Critical` to `High` on 1.12.0
 
-### To Deploy on the cluster
-**Build and push your image to the location specified by `IMG`:**
+### Installing/Uninstalling
+The operator can be installed using the provided helm chart. Documentation on how to install/uninstall and available parameters of the `values.yaml` can be found here [here](https://github.com/GustavoJST/kube-botblocker/tree/main/deploy/charts/kube-botblocker-operator).
 
-```sh
-make docker-build docker-push IMG=<some-registry>/kube-botblocker:tag
+
+## How to use it
+kube-botblocker introduces a new custom resource called `IngressConfig`, in which you can specify a list of User-Agents to be blocked:
+```yaml
+apiVersion: kube-botblocker.github.io/v1alpha1
+kind: IngressConfig
+metadata:
+  name: useragent-blocklist
+spec:
+  blockedUserAgents:
+    - AI2Bot
+    - Ai2Bot-Dolma
+    - Amazonbot
+    - anthropic-ai
+    - Applebot
+    - Applebot-Extended
+    - Bytespider
+    - CCBot
+    - ChatGPT-User
+    - Claude-Web
+    - ClaudeBot
+    - cohere-ai
+    - Diffbot
+    - DuckAssistBot
+    - FacebookBot
+    - facebookexternalhit
+    - FriendlyCrawler
+    - Google-Extended
+    - GoogleOther
+    - GoogleOther-Image
+    - GoogleOther-Video
+    - GPTBot
+    - iaskspider/2.0
+    - ICCCrawler
+    - ImagesiftBot
+    - img2dataset
+    - ISSCyberRiskCrawler
+    - KangarooBot
+    - Meta-ExternalAgent
+    - Meta-ExternalFetcher
+    - OAI-SearchBot
+    - omgili
+    - omgilibot
+    - PerplexityBot
+    - PetalBot
+    - Scrapy
+    - SidetradeIndexerBot
+    - Timpibot
+    - VelenPublicWebCrawler
+    - Webzio-Extended
+    - YouBot
+    - AhrefsBot
+    - SemrushBot
+    - meta-externalagent
+```
+>**NOTE**: The IngressConfig custom resource must reside in the same namespace where kube-botblocker is running, even if `CurrentNamespaceOnly` is set to `false` in the [helm chart](#deployment-modes).
+
+>**NOTE²**: User agents inside `blockedUserAgents` are matched using a **case insensitive** strategy (NGINX ~* operator).
+>
+>For example, the `AhrefsBot` user agent in the IngressConfig above will match the user-agent string `Mozilla/5.0 (compatible; AhrefsBot/7.0; +http://ahrefs.com/robot/)`, since one `AhrefsBot` is present in the user-agent string.
+
+After the IngressConfig custom resource is created, you can reference it using the annotations below inside a Ingress you to protect:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: myingress
+  annotations:
+    # Required - Specify the name of the IngressConfig you want to use
+    kube-botblocker.github.io/ingressConfigName: "useragent-blocklist"
+spec:
+  rules:
+  # ...rest of your Ingress configuration....
 ```
 
-**NOTE:** This image ought to be published in the personal registry you specified.
-And it is required to have access to pull the image from the working environment.
-Make sure you have the proper permission to the registry if the above commands don’t work.
+When the annotation is set, kube-botblocker will generate the required configuration and either append it to the existing `nginx.ingress.kubernetes.io/server-snippet` annotation or create it if it doesn’t already exist:
 
-**Install the CRDs into the cluster:**
-
-```sh
-make install
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-ingress
+  annotations:
+    kube-botblocker.github.io/ingressConfigName: useragent-blocklist
+    kube-botblocker.github.io/ingressConfigSpecHash: 6ba9a2e583e163a90764393df1bcd8695fca8558c0dbcbe8d4524eeeb24346fe
+    nginx.ingress.kubernetes.io/server-snippet: |-
+      # kube-botblocker.github.io operator: Configuration start
+      # Configuration added by kube-botblocker operator. Do not edit any of this manually
+      if ($http_user_agent ~* "(AI2Bot|Ai2Bot-Dolma|Amazonbot|anthropic-ai|Applebot|Applebot-Extended|Bytespider|CCBot|ChatGPT-User|Claude-Web|ClaudeBot|cohere-ai|Diffbot|DuckAssistBot|FacebookBot|facebookexternalhit|FriendlyCrawler|Google-Extended|GoogleOther|GoogleOther-Image|GoogleOther-Video|GPTBot|iaskspider/2.0|ICCCrawler|ImagesiftBot|img2dataset|ISSCyberRiskCrawler|KangarooBot|Meta-ExternalAgent|Meta-ExternalFetcher|OAI-SearchBot|omgili|omgilibot|PerplexityBot|PetalBot|Scrapy|SidetradeIndexerBot|Timpibot|VelenPublicWebCrawler|Webzio-Extended|YouBot|AhrefsBot|SemrushBot|meta-externalagent)") {
+        return 403;
+      }
+      # kube-botblocker.github.io operator: Configuration end
+spec:
+  rules:
+  # ...rest of your Ingress configuration....
 ```
 
-**Deploy the Manager to the cluster with the image specified by `IMG`:**
+> **NOTE**: As said in the generated configuration above, **do not remove or edit the generated configuration manually**, especially the first and last lines, as these serve as markers so kube-botblocker can track where its configuration starts/end, keeping the rest of your configuration inside the annotation intact. If you do remove or edit the markers, the contents of the `server-snippet` annotation will be preserved, but manual action will be required to clean up any leftover configuration added by the operator.
 
-```sh
-make deploy IMG=<some-registry>/kube-botblocker:tag
+When you want to remove the generated configuration, remove the `kube-botblocker.github.io/ingressConfigName` annotation manually or using the command bellow:
+
+```bash
+kubectl annotate ingress -n your-namespace your-ingress kube-botblocker.github.io/ingressConfigName-
 ```
 
-> **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
-privileges or be logged in as admin.
+kube-botblocker will then remove the generated configuration, leaving the pre-existing configuration (if any) intact.
 
-**Create instances of your solution**
-You can apply the samples (examples) from the config/sample:
+Mass addition/removal of annotations can be achieved using `-A` and `--all` flags for `kubectl annotate`:
 
-```sh
-kubectl apply -k config/samples/
+```bash
+# Add annotations for all Ingresses in a certain namespace
+kubectl annotate ingress -n your-namespace --all kube-botblocker.github.io/ingressConfigName=useragents-blocklist
+
+# Add annotations for all ingress in all namespaces
+kubectl annotate ingress -A --all kube-botblocker.github.io/ingressConfigName=useragents-blocklist
+
+# Remove annotations for all Ingresses in a certain namespace
+kubectl annotate ingress -n your-namespace --all kube-botblocker.github.io/ingressConfigName-
+
+# Remove annotations for all ingress in all namespaces
+kubectl annotate ingress -A --all kube-botblocker.github.io/ingressConfigName-
 ```
 
->**NOTE**: Ensure that the samples has default values to test it out.
+### Deployment modes
+kube-botblocker has two deployment modes that can be toggled using the `currentNamespaceOnly` parameter present in the chart `values.yaml`:
 
-### To Uninstall
-**Delete the instances (CRs) from the cluster:**
+`currentNamespaceOnly: false` - Default, allows kube-botblocker annotations work on all Ingresses cluster wide.
 
-```sh
-kubectl delete -k config/samples/
-```
-
-**Delete the APIs(CRDs) from the cluster:**
-
-```sh
-make uninstall
-```
-
-**UnDeploy the controller from the cluster:**
-
-```sh
-make undeploy
-```
-
-## Project Distribution
-
-Following the options to release and provide this solution to the users.
-
-### By providing a bundle with all YAML files
-
-1. Build the installer for the image built and published in the registry:
-
-```sh
-make build-installer IMG=<some-registry>/kube-botblocker:tag
-```
-
-**NOTE:** The makefile target mentioned above generates an 'install.yaml'
-file in the dist directory. This file contains all the resources built
-with Kustomize, which are necessary to install this project without its
-dependencies.
-
-2. Using the installer
-
-Users can just run 'kubectl apply -f <URL for YAML BUNDLE>' to install
-the project, i.e.:
-
-```sh
-kubectl apply -f https://raw.githubusercontent.com/<org>/kube-botblocker/<tag or branch>/dist/install.yaml
-```
-
-### By providing a Helm Chart
-
-1. Build the chart using the optional helm plugin
-
-```sh
-kubebuilder edit --plugins=helm/v1-alpha
-```
-
-2. See that a chart was generated under 'dist/chart', and users
-can obtain this solution from there.
-
-**NOTE:** If you change the project, you need to update the Helm Chart
-using the same command above to sync the latest changes. Furthermore,
-if you create webhooks, you need to use the above command with
-the '--force' flag and manually ensure that any custom configuration
-previously added to 'dist/chart/values.yaml' or 'dist/chart/manager/manager.yaml'
-is manually re-applied afterwards.
-
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
-
-**NOTE:** Run `make help` for more information on all potential `make` targets
-
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
-
-## License
-
-Copyright 2025.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
+`currentNamespaceOnly: true` - Restricts kube-botblocker annotations to work only on Ingresses present in the same namespace as itself. Annotations applied to Ingresses in other namespaces **will be ignored**.
