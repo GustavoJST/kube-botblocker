@@ -38,6 +38,14 @@ help: ## Display this help.
 
 ##@ Development
 
+.PHONY: start-cluster
+start-cluster: ## Resumes a minikube cluster or creates one if it doesn't exist
+	@command -v minikube >/dev/null 2>&1 || { \
+		echo "Minikube is not installed. Please install Minikube manually."; \
+		exit 1; \
+	}
+	@minikube start
+
 # Image URL to use all building/pushing image targets
 IMG ?= quay.io/gustavojst/kube-botblocker:latest-test
 
