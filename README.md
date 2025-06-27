@@ -14,7 +14,7 @@ The operator can be installed using the provided helm chart. Documentation on ho
 
 
 ## How to use it
-kube-botblocker introduces a new custom resource called `IngressConfig`, in which you can specify a list of User-Agents to be blocked:
+kube-botblocker introduces a new custom resource called `IngressConfig`, in which you can specify a list of user agents to be blocked on a per Ingress level:
 ```yaml
 apiVersion: kube-botblocker.github.io/v1alpha1
 kind: IngressConfig
@@ -111,6 +111,8 @@ spec:
 ```
 
 > **NOTE**: As said in the generated configuration above, **do not remove or edit the generated configuration manually**, especially the first and last lines, as these serve as markers so kube-botblocker can track where its configuration starts/end, keeping the rest of your configuration inside the annotation intact. If you do remove or edit the markers, the contents of the `server-snippet` annotation will be preserved, but manual action will be required to clean up any leftover configuration added by the operator.
+
+Updating the IngressConfig object (adding or removing user agents) will roll out an update to the `server-snippet` annotation of all Ingresses that reference said IngressConfig.
 
 When you want to remove the generated configuration, remove the `kube-botblocker.github.io/ingressConfigName` annotation manually or using the command bellow:
 
