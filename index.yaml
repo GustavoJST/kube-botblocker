@@ -1,6 +1,40 @@
 apiVersion: v1
 entries:
   kube-botblocker-operator:
+  - annotations:
+      artifacthub.io/links: |
+        - name: "Chart source and upstream project"
+          url: https://github.com/GustavoJST/kube-botblocker
+      artifacthub.io/operator: "true"
+    apiVersion: v2
+    appVersion: 0.2.0
+    created: "2025-06-29T18:32:57.913960215Z"
+    dependencies:
+    - condition: crds.enabled
+      name: kube-botblocker-operator-crds
+      repository: file://../kube-botblocker-operator-crds
+      version: 0.2.0
+    description: Easily configure User-Agent blocks for selected ingresses - ingress-nginx
+      only
+    digest: 21a3b55a61289a06b879b61ee5aba294f847d3e8f2c6ff19536d1771fa441d7d
+    home: https://github.com/GustavoJST/kube-botblocker
+    keywords:
+    - bots
+    - user-agent
+    - block
+    - ingress
+    - nginx
+    kubeVersion: '>=1.26.0-0'
+    maintainers:
+    - email: gustavo.justo@outlook.com
+      name: GustavoJST
+    name: kube-botblocker-operator
+    sources:
+    - https://github.com/GustavoJST/kube-botblocker
+    type: application
+    urls:
+    - kube-botblocker-operator-0.2.0.tgz
+    version: 0.2.0
   - apiVersion: v2
     appVersion: 0.1.0
     created: "2025-05-02T21:38:35.908789Z"
@@ -27,6 +61,34 @@ entries:
     - kube-botblocker-operator-0.1.0.tgz
     version: 0.1.0
   kube-botblocker-operator-crds:
+  - annotations:
+      artifacthub.io/links: |-
+        - name: "Chart source and upstream project"
+          url: https://github.com/GustavoJST/kube-botblocker
+      artifacthub.io/operator: "false"
+    apiVersion: v2
+    appVersion: 0.0.0
+    created: "2025-06-29T18:32:58.049483484Z"
+    description: CRDs for kube-botblocker-operator
+    digest: 06478fb563d92e84ee5722d17b6fe089e6a3b1cd2d48a32125d7677b5929e90e
+    home: https://github.com/GustavoJST/kube-botblocker
+    keywords:
+    - bots
+    - user-agent
+    - block
+    - ingress
+    - nginx
+    kubeVersion: '>=1.26.0-0'
+    maintainers:
+    - email: gustavo.justo@outlook.com
+      name: GustavoJST
+    name: kube-botblocker-operator-crds
+    sources:
+    - https://github.com/GustavoJST/kube-botblocker
+    type: application
+    urls:
+    - kube-botblocker-operator-crds-0.2.0.tgz
+    version: 0.2.0
   - apiVersion: v2
     appVersion: 0.0.0
     created: "2025-05-02T21:38:36.000824625Z"
@@ -46,4 +108,4 @@ entries:
     urls:
     - kube-botblocker-operator-crds-0.1.0.tgz
     version: 0.1.0
-generated: "2025-05-02T21:38:36.000831869Z"
+generated: "2025-06-29T18:32:58.049488954Z"
