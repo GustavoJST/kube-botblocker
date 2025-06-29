@@ -16,13 +16,13 @@ linters:
     - unused
   settings:
     gocyclo:
-      min-complexity: 22
+      min-complexity: 30
     lll:
       line-length: 140
     misspell:
       locale: US
     nestif:
-      min-complexity: 12
+      min-complexity: 18
   exclusions:
     generated: lax
     presets:

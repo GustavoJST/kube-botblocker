@@ -2,20 +2,30 @@ apiVersion: v2
 name: kube-botblocker-operator
 description: Easily configure User-Agent blocks for selected ingresses - ingress-nginx only
 type: application
-version: 0.1.0
-appVersion: "0.1.0"
+version: 0.2.0
+appVersion: "0.2.0"
 home: https://github.com/GustavoJST/kube-botblocker
 sources:
   - https://github.com/GustavoJST/kube-botblocker
 keywords:
   - bots
-  - ai
+  - user-agent
   - block
   - ingress
   - nginx
+kubeVersion: ">=1.26.0-0"
+maintainers:
+  - name: GustavoJST
+    email: gustavo.justo@outlook.com
+annotations:
+  artifacthub.io/operator: "true"
+  artifacthub.io/links: |
+    - name: "Chart source and upstream project"
+      url: https://github.com/GustavoJST/kube-botblocker
+
 
 dependencies:
   - name: kube-botblocker-operator-crds
-    version: "0.1.0"
+    version: "0.2.0"
     condition: crds.enabled
     repository: file://../kube-botblocker-operator-crds

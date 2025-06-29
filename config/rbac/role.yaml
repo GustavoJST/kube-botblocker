@@ -28,11 +28,26 @@ rules:
   resources:
   - ingressconfigs
   verbs:
+  - delete
   - get
   - list
   - patch
   - update
   - watch
+- apiGroups:
+  - kube-botblocker.github.io
+  resources:
+  - ingressconfigs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - kube-botblocker.github.io
+  resources:
+  - ingressconfigs/status
+  verbs:
+  - get
+  - patch
+  - update
 - apiGroups:
   - networking.k8s.io
   resources:

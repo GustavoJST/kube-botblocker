@@ -17,6 +17,109 @@ rbac:
 # -- Whether the operator should watch Ingress resources only in its own namespace or not
 currentNamespaceOnly: false
 
+# -- List of IngressConfig resources to be created with the helm chart.
+# Note that if .cleanupJob.enabled is false, these resources will not be outright deleted when the
+# chart is uninstalled due to the presence of finalizers.
+# You can either wait for the deletionTimestamp of each object to expire or perform a manual cleanup.
+ingressConfigs: []
+  # - name: "ingressconfig-example"
+  #   labels: {}
+  #   annotations: {}
+  #   blockedUserAgents:
+  #     - AI2Bot
+  #     - Ai2Bot-Dolma
+  #     - anthropic-ai
+  #     - Bytespider
+  #     - CCBot
+  #     - ChatGPT-User
+  #     - Claude-Web
+  #     - ClaudeBot
+  #     - cohere-ai
+
+cleanupJob:
+  # -- Wheter to run a cleanup job do remove all IngressConfig and their configuration present on associated Ingresses
+  # on helm chart removal
+  enabled: true
+  image:
+    # -- imagePullSecret for cleanup job
+    imagePullSecrets: []
+    kubectl:
+      # -- Defines the registry used to pull the image for the cleanup job
+      registry: registry.k8s.io
+      # -- Defines the repository used to pull the image for the cleanup job
+      repository: kubectl
+      # -- Defines the image tag used to pull the image for the cleanup job.
+      # An empty value will default to the current Kubernetes version
+      tag: ""
+      # -- Defines the sha256 to be used during image pull for the cleanup job. Useful for sha256 pinning.
+      # An empty value will not use the sha256 during the image pull process
+      sha: ""
+      # -- Defines the pullPolicy for the cleanup job image
+      pullPolicy: IfNotPresent
+
+  # -- Defines the pullPolicy for the cleanup job image
+  env: {}
+
+  # -- Defines resources requests and limits for cleanup job pod
+  resources: {}
+
+  # -- Defines node selector for cleanup job
+  nodeSelector: {}
+
+  # -- Assign custom affinity rules to the cleanup job
+  affinity: {}
+  # nodeAffinity:
+  #   requiredDuringSchedulingIgnoredDuringExecution:
+  #     nodeSelectorTerms:
+  #     - matchExpressions:
+  #       - key: kubernetes.io/e2e-az-name
+  #         operator: In
+  #         values:
+  #         - e2e-az1
+  #         - e2e-az2
+
+  # -- Defines tolerations for the cleanup job
+  tolerations: []
+  # - key: "key"
+  #   operator: "Equal"
+  #   value: "value"
+  #   effect: "NoSchedule"
+
+  # -- Defines labels to add to the cleanup job
+  labels: {}
+
+  # -- Defines annotations to add to the cleanup job
+  annotations: {}
+
+  # -- Defines labels to add to the cleanup job pod
+  podLabels: {}
+
+  # -- Defines annotations to add to the cleanup job pod
+  podAnnotations: {}
+
+  serviceAccount:
+    # -- Defines labels for the cleanup job service account
+    labels: {}
+    # -- Defines annotations for the cleanup job service account
+    annotations: {}
+
+  # -- Defines container-level security context configuration for the cleanup job
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+
+  # -- Defines pod-level security context configuration for the cleanup job
+  podSecurityContext:
+    fsGroup: 65534
+    runAsGroup: 65534
+    runAsNonRoot: true
+    runAsUser: 65534
+    seccompProfile:
+      type: RuntimeDefault
+
 metrics:
   # -- Enables exposure of the operator internal metrics in prometheus format
   enabled: false

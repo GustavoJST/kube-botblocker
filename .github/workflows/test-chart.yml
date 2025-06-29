@@ -1,0 +1,107 @@
+name: Test Charts
+
+on:
+  pull_request:
+    paths:
+      - 'deploy/**'
+      - '!deploy/**.md'
+      - '!deploy/**.md.gotmpl'
+
+jobs:
+  lint-crds:
+    name: Lint CRDs chart
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        run: |
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+      - name: Verify Helm installation
+        run: helm version
+
+      - name: Lint Helm Chart
+        run: |
+          helm lint ./deploy/charts/kube-botblocker-operator-crds
+
+  lint-operator:
+    name: Lint Operator chart
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        run: |
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+      - name: Verify Helm installation
+        run: helm version
+
+      - name: Lint Helm Chart
+        run: |
+          helm lint ./deploy/charts/kube-botblocker-operator
+
+  test-charts:
+    name: Run on Ubuntu
+    runs-on: ubuntu-latest
+    needs:
+      - lint-crds
+      - lint-operator
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install the latest version of kind
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/latest/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+
+      - name: Verify kind installation
+        run: kind version
+
+      - name: Create kind cluster
+        run: kind create cluster
+
+      - name: Prepare and load docker image to kind
+        run: |
+          go mod tidy
+          make docker-build IMG=kube-botblocker:chart-test
+          kind load docker-image kube-botblocker:chart-test
+
+      - name: Install Helm
+        run: |
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+      - name: Verify Helm installation
+        run: helm version
+
+      - name: Install CRDs helm chart
+        run: |
+          helm dependency update ./deploy/charts/kube-botblocker-operator-crds
+          helm install kube-botblocker-operator-crds -n kube-botblocker --create-namespace ./deploy/charts/kube-botblocker-operator-crds
+
+      - name: Check CRDs helm release status
+        run: |
+          helm status kube-botblocker-operator-crds -n kube-botblocker
+
+      - name: Install operator helm chart
+        run: |
+          helm dependency update ./deploy/charts/kube-botblocker-operator
+          helm install kube-botblocker-operator -n kube-botblocker \
+            --set image.repository=kube-botblocker \
+            --set image.tag=chart-test \
+            --create-namespace ./deploy/charts/kube-botblocker-operator
+
+      - name: Check operator helm release status
+        run: |
+          helm status kube-botblocker-operator -n kube-botblocker
+

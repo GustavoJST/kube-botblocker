@@ -20,14 +20,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // IngressConfigSpec defines the desired state of IngressConfig.
 type IngressConfigSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
 	// List of User-Agents to be added to the blocklist in each protected Ingress
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:Required
@@ -37,12 +31,34 @@ type IngressConfigSpec struct {
 
 // IngressConfigStatus defines the observed state of IngressConfig.
 type IngressConfigStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// LastUpdated is the timestamp when the IngressConfig spec was last modified,
+	// triggering a potential reconciliation of associated Ingresses.
+	// This field is updated when the .spec of IngressConfig changes.
+	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
+
+	// LastConditionStatus is the status of the last Condition applied to a IngressConfig object
+	LastConditionStatus metav1.ConditionStatus `json:"lastConditionStatus,omitempty"`
+
+	// LastConditionStatus is the message of the last Condition applied to a IngressConfig object
+	LastConditionMessage string `json:"lastConditionMessage,omitempty"`
+
+	// Conditions provide observations of the IngressConfig's state.
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+
+	// SpecHash is the SHA256 hash of the .spec field of the IngressConfig.
+	SpecHash string `json:"specHash,omitempty"`
+
+	// ObservedGeneration is the most recent generation observed for this IngressConfig.
+	// It corresponds to the IngressConfig's generation.
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.lastConditionStatus"
+// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.lastConditionMessage"
+// +kubebuilder:printcolumn:name="Last Updated",type="date",JSONPath=".status.lastUpdated"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // IngressConfig is the Schema for the ingressconfigs API.
 type IngressConfig struct {
@@ -65,3 +81,12 @@ type IngressConfigList struct {
 func init() {
 	SchemeBuilder.Register(&IngressConfig{}, &IngressConfigList{})
 }
+
+const (
+	ConditionTypeUpdateSucceeded            string = "UpdateSucceeded"
+	ConditionReasonReconciliationInProgress string = "ReconciliationInProgress"
+	ConditionReasonReconciliationSuccessful string = "ReconciliationSuccessful"
+
+	ConditionTypeCleanupSucceeded    string = "CleanupSucceeded"
+	ConditionReasonCleanupInProgress string = "CleanupInProgress"
+)
