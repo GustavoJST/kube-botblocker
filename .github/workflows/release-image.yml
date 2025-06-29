@@ -20,10 +20,10 @@ jobs:
     name: Build and release multiarch
     runs-on: ubuntu-latest
     steps:
-      - name: Generate BUILD_DATE
+      - name: Generate BUILD_DATE and VERSION
         run: |
           echo "BUILD_DATE=$(date +'%Y-%m-%dT%H:%M:%S')" >> $GITHUB_OUTPUT
-          echo "VERSION=${{github.ref_name}}" >> $GITHUB_OUTPUT
+          echo "VERSION=${{ github.ref_name }}" >> $GITHUB_OUTPUT
         id: build-date
 
       - name: Checkout
@@ -64,6 +64,8 @@ jobs:
 
   release-binary:
     name: Release with Goreleaser
+    needs:
+      - build-release-image
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -83,6 +85,4 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-
-
+          GORELEASER_CURRENT_TAG: ${{ github.ref_name }}

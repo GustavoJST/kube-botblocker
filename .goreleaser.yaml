@@ -5,6 +5,9 @@ before:
     - go mod tidy
 changelog:
   use: github-native
+git:
+  ignore_tags:
+    - "kube-botblocker-operator*"
 builds:
   - id: kube-botblocker
     binary: kube-botblocker
