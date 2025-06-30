@@ -1,4 +1,7 @@
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/kube-botblocker)](https://artifacthub.io/packages/search?repo=kube-botblocker)
+
 # kube-botblocker
+
 kube-botblocker is a operator that simplifies User-Agent blocking for your ingress-nginx Ingresses.
 
 ## Getting Started
