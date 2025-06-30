@@ -4,9 +4,9 @@ nameOverride: ""
 fullnameOverride: ""
 
 crds:
-  # -- Whether the helm chart should create and update the CRDs. It is false by default, which implies that the CRDs must be
-  # managed independently with the kube-botblocker-operator-crds helm chart.
-  # **WARNING**: If set to true, uninstalling the chart (or doing a helm upgrade after setting it back to false)
+  # -- Whether the Helm chart should create and update the CRDs. It is false by default, which implies that the CRDs must be
+  # managed independently with the kube-botblocker-operator-crds Helm chart.
+  # **WARNING**: If set to true, uninstalling the chart (or doing a Helm upgrade after setting it back to false)
   # will cause all CRDs and custom resources (IngressConfigs) to be DELETED, causing DATA LOSS
   enabled: false
 
@@ -17,7 +17,7 @@ rbac:
 # -- Whether the operator should watch Ingress resources only in its own namespace or not
 currentNamespaceOnly: false
 
-# -- List of IngressConfig resources to be created with the helm chart.
+# -- List of IngressConfig resources to be created with the Helm chart.
 # Note that if .cleanupJob.enabled is false, these resources will not be outright deleted when the
 # chart is uninstalled due to the presence of finalizers.
 # You can either wait for the deletionTimestamp of each object to expire or perform a manual cleanup.
@@ -38,7 +38,7 @@ ingressConfigs: []
 
 cleanupJob:
   # -- Wheter to run a cleanup job do remove all IngressConfig and their configuration present on associated Ingresses
-  # on helm chart removal
+  # on Helm chart removal
   enabled: true
   image:
     # -- imagePullSecret for cleanup job

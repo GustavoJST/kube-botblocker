@@ -12,10 +12,10 @@ Easily configure User-Agent blocks for selected ingresses - ingress-nginx only
 
 ## Installing
 
-There are two ways to install and manage the kube-botblocker helm chart:
+There are two ways to install and manage the kube-botblocker Helm chart:
 
 1. Recommended:
-    Install the kube-botblocker CRDs chart separately and then install this helm chart. When this chart is uninstalled, the CRDs will remain as long as the CRDs chart is not uninstalled, preventing data loss.
+    Install the kube-botblocker CRDs chart separately and then install this Helm chart. When this chart is uninstalled, the CRDs will remain as long as the CRDs chart is not uninstalled, preventing data loss.
 
     ```bash
     helm repo add kube-botblocker https://gustavojst.github.io/kube-botblocker
@@ -31,10 +31,10 @@ There are two ways to install and manage the kube-botblocker helm chart:
 
 Whether you choose the first or second option above on install, if you wish to uninstall kube-botblocker, you can:
 
-1. Simply uninstall the helm chart if `.cleanupJob.enabled: true` (the default). This will run a pre-delete helm hook Job that will uninstall all kube-botblocker related,
+1. Simply uninstall the Helm chart if `.cleanupJob.enabled: true` (the default). This will run a pre-delete Helm hook Job that will uninstall all kube-botblocker related,
 configuration (including IngressConfig objects and configuration inside associated ingresses).
 
-2. If `.cleanupJob.enabled: false`, run the command below **BEFORE** uninstalling the helm chart:
+2. If `.cleanupJob.enabled: false`, run the command below **BEFORE** uninstalling the Helm chart:
 
     ```bash
     kubectl annotate --all -A kube-botblocker.github.io/ingressConfigName-
@@ -44,7 +44,7 @@ configuration (including IngressConfig objects and configuration inside associat
 
 Not doing the process mentioned above will leave you with dangling IngressConfig objects and ingresses that have kube-botblocker related annotations and configuration **even after the chart is uninstalled**.
 
-Lastly, if `crds.enabled: false`, remove the kube-botblocker CRDs helm chart.
+Lastly, if `crds.enabled: false`, remove the kube-botblocker CRDs Helm chart.
 
 ## Values
 
@@ -54,7 +54,7 @@ Lastly, if `crds.enabled: false`, remove the kube-botblocker CRDs helm chart.
 | cleanupJob.affinity | object | `{}` | Assign custom affinity rules to the cleanup job |
 | cleanupJob.annotations | object | `{}` | Defines annotations to add to the cleanup job |
 | cleanupJob.containerSecurityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"readOnlyRootFilesystem":true}` | Defines container-level security context configuration for the cleanup job |
-| cleanupJob.enabled | bool | `true` | Wheter to run a cleanup job do remove all IngressConfig and their configuration present on associated Ingresses on helm chart removal |
+| cleanupJob.enabled | bool | `true` | Wheter to run a cleanup job do remove all IngressConfig and their configuration present on associated Ingresses on Helm chart removal |
 | cleanupJob.env | object | `{}` | Defines the pullPolicy for the cleanup job image |
 | cleanupJob.image.imagePullSecrets | list | `[]` | imagePullSecret for cleanup job |
 | cleanupJob.image.kubectl.pullPolicy | string | `"IfNotPresent"` | Defines the pullPolicy for the cleanup job image |
@@ -71,14 +71,14 @@ Lastly, if `crds.enabled: false`, remove the kube-botblocker CRDs helm chart.
 | cleanupJob.serviceAccount.annotations | object | `{}` | Defines annotations for the cleanup job service account |
 | cleanupJob.serviceAccount.labels | object | `{}` | Defines labels for the cleanup job service account |
 | cleanupJob.tolerations | list | `[]` | Defines tolerations for the cleanup job |
-| crds.enabled | bool | `false` | Whether the helm chart should create and update the CRDs. It is false by default, which implies that the CRDs must be managed independently with the kube-botblocker-operator-crds helm chart. **WARNING**: If set to true, uninstalling the chart (or doing a helm upgrade after setting it back to false) will cause all CRDs and custom resources (IngressConfigs) to be DELETED, causing DATA LOSS |
+| crds.enabled | bool | `false` | Whether the Helm chart should create and update the CRDs. It is false by default, which implies that the CRDs must be managed independently with the kube-botblocker-operator-crds Helm chart. **WARNING**: If set to true, uninstalling the chart (or doing a Helm upgrade after setting it back to false) will cause all CRDs and custom resources (IngressConfigs) to be DELETED, causing DATA LOSS |
 | currentNamespaceOnly | bool | `false` | Whether the operator should watch Ingress resources only in its own namespace or not |
 | fullnameOverride | string | `""` | Overrides the chart's computed fullname |
 | image.pullPolicy | string | `"IfNotPresent"` | Sets the pull policy for the controller image |
 | image.repository | string | `"quay.io/gustavojst/kube-botblocker"` | Repository path to the controller image |
 | image.tag | string | `""` | Overrides the image tag whose default is the chart appVersion |
 | imagePullSecrets | list | `[]` | Image pull secrets for pulling images from the registry |
-| ingressConfigs | list | `[]` | List of IngressConfig resources to be created with the helm chart. Note that if .cleanupJob.enabled is false, these resources will not be outright deleted when the chart is uninstalled due to the presence of finalizers. You can either wait for the deletionTimestamp of each object to expire or perform a manual cleanup. |
+| ingressConfigs | list | `[]` | List of IngressConfig resources to be created with the Helm chart. Note that if .cleanupJob.enabled is false, these resources will not be outright deleted when the chart is uninstalled due to the presence of finalizers. You can either wait for the deletionTimestamp of each object to expire or perform a manual cleanup. |
 | livenessProbe | object | `{"httpGet":{"path":"/healthz","port":8081},"initialDelaySeconds":15,"periodSeconds":20}` | livenessProbe to add to the controller container |
 | metrics.enabled | bool | `false` | Enables exposure of the operator internal metrics in prometheus format |
 | metrics.port | int | `8443` | Configures the operator metrics port |

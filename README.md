@@ -8,12 +8,12 @@ kube-botblocker is a operator that simplifies User-Agent blocking for your ingre
 
 ### Prerequisites
 - ingress-nginx controller present in the cluster
-- `allow-snippet-annotations` must be set to `true`. You can set it either on the ingress-nginx controller [configmap](https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/configmap/#allow-snippet-annotations) or through the [helm chart](https://artifacthub.io/packages/helm/ingress-nginx/ingress-nginx?modal=values&path=controller.allowSnippetAnnotations)
+- `allow-snippet-annotations` must be set to `true`. You can set it either on the ingress-nginx controller [configmap](https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/configmap/#allow-snippet-annotations) or through the [Helm chart](https://artifacthub.io/packages/helm/ingress-nginx/ingress-nginx?modal=values&path=controller.allowSnippetAnnotations)
 - For ingress-nginx >= 1.12.0, it is also necessary to set `annotations-risk-level` to `Critical`, configurable only through the ingress-nginx [configmap](https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/configmap/#annotations-risk-level)
   - This is because the [server-snippet](https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/annotations/#server-snippet) annotation used by kube-botblocker is [classified as Critical](https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/annotations-risk/), while the default allowed risk level for annotations was decreased from `Critical` to `High` on 1.12.0
 
 ### Installing/Uninstalling
-The operator can be installed using the provided helm chart. Documentation on how to install/uninstall and available parameters of the `values.yaml` can be found here [here](https://github.com/GustavoJST/kube-botblocker/tree/main/deploy/charts/kube-botblocker-operator).
+The operator can be installed using the provided Helm chart. Documentation on how to install/uninstall and available parameters of the `values.yaml` can be found here [here](https://github.com/GustavoJST/kube-botblocker/tree/main/deploy/charts/kube-botblocker-operator).
 
 
 ## How to use it
@@ -70,7 +70,7 @@ spec:
     - SemrushBot
     - meta-externalagent
 ```
->**NOTE**: The IngressConfig custom resource must reside in the same namespace where kube-botblocker is running, even if `CurrentNamespaceOnly` is set to `false` in the [helm chart](#deployment-modes).
+>**NOTE**: The IngressConfig custom resource must reside in the same namespace where kube-botblocker is running, even if `CurrentNamespaceOnly` is set to `false` in the [Helm chart](#deployment-modes).
 
 >**NOTE²**: User agents inside `blockedUserAgents` are matched using a **case insensitive** strategy (NGINX ~* operator).
 >

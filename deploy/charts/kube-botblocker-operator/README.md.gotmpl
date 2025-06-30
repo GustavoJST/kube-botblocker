@@ -10,10 +10,10 @@
 
 ## Installing
 
-There are two ways to install and manage the kube-botblocker helm chart:
+There are two ways to install and manage the kube-botblocker Helm chart:
 
 1. Recommended:
-    Install the kube-botblocker CRDs chart separately and then install this helm chart. When this chart is uninstalled, the CRDs will remain as long as the CRDs chart is not uninstalled, preventing data loss.
+    Install the kube-botblocker CRDs chart separately and then install this Helm chart. When this chart is uninstalled, the CRDs will remain as long as the CRDs chart is not uninstalled, preventing data loss.
 
     ```bash
     helm repo add kube-botblocker https://gustavojst.github.io/kube-botblocker
@@ -29,10 +29,10 @@ There are two ways to install and manage the kube-botblocker helm chart:
 
 Whether you choose the first or second option above on install, if you wish to uninstall kube-botblocker, you can:
 
-1. Simply uninstall the helm chart if `.cleanupJob.enabled: true` (the default). This will run a pre-delete helm hook Job that will uninstall all kube-botblocker related,
+1. Simply uninstall the Helm chart if `.cleanupJob.enabled: true` (the default). This will run a pre-delete Helm hook Job that will uninstall all kube-botblocker related,
 configuration (including IngressConfig objects and configuration inside associated ingresses).
 
-2. If `.cleanupJob.enabled: false`, run the command below **BEFORE** uninstalling the helm chart:
+2. If `.cleanupJob.enabled: false`, run the command below **BEFORE** uninstalling the Helm chart:
 
     ```bash
     kubectl annotate --all -A kube-botblocker.github.io/ingressConfigName-
@@ -42,7 +42,7 @@ configuration (including IngressConfig objects and configuration inside associat
 
 Not doing the process mentioned above will leave you with dangling IngressConfig objects and ingresses that have kube-botblocker related annotations and configuration **even after the chart is uninstalled**.
 
-Lastly, if `crds.enabled: false`, remove the kube-botblocker CRDs helm chart.
+Lastly, if `crds.enabled: false`, remove the kube-botblocker CRDs Helm chart.
 
 {{ template "chart.valuesSection" . }}
 
