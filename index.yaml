@@ -8,6 +8,40 @@ entries:
       artifacthub.io/operator: "true"
     apiVersion: v2
     appVersion: 0.2.0
+    created: "2025-06-30T01:13:49.830772826Z"
+    dependencies:
+    - condition: crds.enabled
+      name: kube-botblocker-operator-crds
+      repository: file://../kube-botblocker-operator-crds
+      version: 0.2.1
+    description: Easily configure User-Agent blocks for selected ingresses - ingress-nginx
+      only
+    digest: 463b7615c73b294f4b28bef5a10d8b7a9705b91ae01dbdff936a2d23fbd2425b
+    home: https://gustavojst.github.io/kube-botblocker
+    keywords:
+    - bots
+    - user-agent
+    - block
+    - ingress
+    - nginx
+    kubeVersion: '>=1.26.0-0'
+    maintainers:
+    - email: gustavo.justo@outlook.com
+      name: GustavoJST
+    name: kube-botblocker-operator
+    sources:
+    - https://github.com/GustavoJST/kube-botblocker
+    type: application
+    urls:
+    - kube-botblocker-operator-0.2.1.tgz
+    version: 0.2.1
+  - annotations:
+      artifacthub.io/links: |
+        - name: "Chart source and upstream project"
+          url: https://github.com/GustavoJST/kube-botblocker
+      artifacthub.io/operator: "true"
+    apiVersion: v2
+    appVersion: 0.2.0
     created: "2025-06-29T18:32:57.913960215Z"
     dependencies:
     - condition: crds.enabled
@@ -68,6 +102,34 @@ entries:
       artifacthub.io/operator: "false"
     apiVersion: v2
     appVersion: 0.0.0
+    created: "2025-06-30T01:13:49.985181633Z"
+    description: CRDs for kube-botblocker-operator
+    digest: be108ea0383b555cf7e11ebf65c56976e51099c9fc80a7d76e6bbd24f67558e5
+    home: https://gustavojst.github.io/kube-botblocker
+    keywords:
+    - bots
+    - user-agent
+    - block
+    - ingress
+    - nginx
+    kubeVersion: '>=1.26.0-0'
+    maintainers:
+    - email: gustavo.justo@outlook.com
+      name: GustavoJST
+    name: kube-botblocker-operator-crds
+    sources:
+    - https://github.com/GustavoJST/kube-botblocker
+    type: application
+    urls:
+    - kube-botblocker-operator-crds-0.2.1.tgz
+    version: 0.2.1
+  - annotations:
+      artifacthub.io/links: |-
+        - name: "Chart source and upstream project"
+          url: https://github.com/GustavoJST/kube-botblocker
+      artifacthub.io/operator: "false"
+    apiVersion: v2
+    appVersion: 0.0.0
     created: "2025-06-29T18:32:58.049483484Z"
     description: CRDs for kube-botblocker-operator
     digest: 06478fb563d92e84ee5722d17b6fe089e6a3b1cd2d48a32125d7677b5929e90e
@@ -108,4 +170,4 @@ entries:
     urls:
     - kube-botblocker-operator-crds-0.1.0.tgz
     version: 0.1.0
-generated: "2025-06-29T18:32:58.049488954Z"
+generated: "2025-06-30T01:13:49.985200588Z"
