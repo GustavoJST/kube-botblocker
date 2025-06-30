@@ -2,9 +2,9 @@ apiVersion: v2
 name: kube-botblocker-operator
 description: Easily configure User-Agent blocks for selected ingresses - ingress-nginx only
 type: application
-version: 0.2.0
+version: 0.2.1
 appVersion: "0.2.0"
-home: https://github.com/GustavoJST/kube-botblocker
+home: https://gustavojst.github.io/kube-botblocker
 sources:
   - https://github.com/GustavoJST/kube-botblocker
 keywords:
@@ -26,6 +26,6 @@ annotations:
 
 dependencies:
   - name: kube-botblocker-operator-crds
-    version: "0.2.0"
+    version: "0.2.1"
     condition: crds.enabled
     repository: file://../kube-botblocker-operator-crds

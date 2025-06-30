@@ -2,9 +2,9 @@ apiVersion: v2
 name: kube-botblocker-operator-crds
 description: CRDs for kube-botblocker-operator
 type: application
-version: 0.2.0
+version: 0.2.1
 appVersion: "0.0.0"
-home: https://github.com/GustavoJST/kube-botblocker
+home: https://gustavojst.github.io/kube-botblocker
 sources:
   - https://github.com/GustavoJST/kube-botblocker
 keywords:

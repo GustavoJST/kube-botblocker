@@ -1,10 +1,10 @@
 # kube-botblocker-operator
 
-![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![Version: 0.2.0](https://img.shields.io/badge/Version-0.2.0-informational?style=flat-square) ![AppVersion: 0.2.0](https://img.shields.io/badge/AppVersion-0.2.0-informational?style=flat-square)
+![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![Version: 0.2.1](https://img.shields.io/badge/Version-0.2.1-informational?style=flat-square) ![AppVersion: 0.2.0](https://img.shields.io/badge/AppVersion-0.2.0-informational?style=flat-square)
 
 Easily configure User-Agent blocks for selected ingresses - ingress-nginx only
 
-**Homepage:** <https://github.com/GustavoJST/kube-botblocker>
+**Homepage:** <https://gustavojst.github.io/kube-botblocker>
 
 ## Source Code
 
@@ -25,14 +25,14 @@ There are two ways to install and manage the kube-botblocker helm chart:
 
 2. Use `--set crds.enabled=true` when installing the chart. This will make the chart install and manage the necessary CRDs, aswell as updating it when the chart updates.
 
-   This is not the default as to prevent **data loss**. Read more about it in `crds.enable` in the `values.yaml` table below.
+   This is not the default as to prevent accidental **data loss**. Read more about it in `crds.enable` in the `values.yaml` table below.
 
 ## Uninstalling
 
 Whether you choose the first or second option above on install, if you wish to uninstall kube-botblocker, you can:
 
-1. Simply uninstall the helm chart if `.cleanupJob.enabled: true` (the default if you didn't change). This will run a pre-delete helm hook that will uninstall all kube-botblocker related,
-configuration, including inside ingresses.
+1. Simply uninstall the helm chart if `.cleanupJob.enabled: true` (the default). This will run a pre-delete helm hook Job that will uninstall all kube-botblocker related,
+configuration (including IngressConfig objects and configuration inside associated ingresses).
 
 2. If `.cleanupJob.enabled: false`, run the command below **BEFORE** uninstalling the helm chart:
 
@@ -42,9 +42,9 @@ configuration, including inside ingresses.
 
     Confirm all configuration from associated ingresses have been removed and delete any IngressConfig objects left. Then, proceed to chart removal with `helm uninstall`
 
-Not doing the process mentioned above will leave you with ingresses that have kube-botblocker related annotations and configuration **even after the chart is uninstalled**.
+Not doing the process mentioned above will leave you with dangling IngressConfig objects and ingresses that have kube-botblocker related annotations and configuration **even after the chart is uninstalled**.
 
-Lastly, if `crds.enabled: false` (the default), remove the kube-botblocker CRDs helm chart.
+Lastly, if `crds.enabled: false`, remove the kube-botblocker CRDs helm chart.
 
 ## Values
 
@@ -78,7 +78,7 @@ Lastly, if `crds.enabled: false` (the default), remove the kube-botblocker CRDs 
 | image.repository | string | `"quay.io/gustavojst/kube-botblocker"` | Repository path to the controller image |
 | image.tag | string | `""` | Overrides the image tag whose default is the chart appVersion |
 | imagePullSecrets | list | `[]` | Image pull secrets for pulling images from the registry |
-| ingressConfigs | list | `[]` | List of IngressConfig resources to be created with the helm chart. Note that if .cleanupJob.enabled is false, these resources will not be deleted when the chart is uninstalled and will need manual cleanup or wait until deletionTimestamp of finalizer to expire |
+| ingressConfigs | list | `[]` | List of IngressConfig resources to be created with the helm chart. Note that if .cleanupJob.enabled is false, these resources will not be outright deleted when the chart is uninstalled due to the presence of finalizers. You can either wait for the deletionTimestamp of each object to expire or perform a manual cleanup. |
 | livenessProbe | object | `{"httpGet":{"path":"/healthz","port":8081},"initialDelaySeconds":15,"periodSeconds":20}` | livenessProbe to add to the controller container |
 | metrics.enabled | bool | `false` | Enables exposure of the operator internal metrics in prometheus format |
 | metrics.port | int | `8443` | Configures the operator metrics port |

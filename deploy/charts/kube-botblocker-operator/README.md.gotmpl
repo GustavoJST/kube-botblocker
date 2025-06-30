@@ -6,8 +6,6 @@
 
 {{ template "chart.homepageLine" . }}
 
-{{ template "chart.maintainersSection" . }}
-
 {{ template "chart.sourcesSection" . }}
 
 ## Installing
@@ -31,7 +29,7 @@ There are two ways to install and manage the kube-botblocker helm chart:
 
 Whether you choose the first or second option above on install, if you wish to uninstall kube-botblocker, you can:
 
-1. Simply uninstall the helm chart if `.cleanupJob.enabled: true` (the default). This will run a pre-delete helm hook that will uninstall all kube-botblocker related,
+1. Simply uninstall the helm chart if `.cleanupJob.enabled: true` (the default). This will run a pre-delete helm hook Job that will uninstall all kube-botblocker related,
 configuration (including IngressConfig objects and configuration inside associated ingresses).
 
 2. If `.cleanupJob.enabled: false`, run the command below **BEFORE** uninstalling the helm chart:
