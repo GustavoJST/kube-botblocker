@@ -1,14 +1,7 @@
-# -- Overrides the chart's name.
+# -- Overrides the chart's name
 nameOverride: ""
 # -- Overrides the chart's computed fullname
 fullnameOverride: ""
-
-crds:
-  # -- Whether the Helm chart should create and update the CRDs. It is false by default, which implies that the CRDs must be
-  # managed independently with the kube-botblocker-operator-crds Helm chart.
-  # **WARNING**: If set to true, uninstalling the chart (or doing a Helm upgrade after setting it back to false)
-  # will cause all CRDs and custom resources (IngressConfigs) to be DELETED, causing DATA LOSS
-  enabled: false
 
 rbac:
   # -- Creates the necessary RBAC resources
@@ -20,7 +13,7 @@ currentNamespaceOnly: false
 # -- List of IngressConfig resources to be created with the Helm chart.
 # Note that if .cleanupJob.enabled is false, these resources will not be outright deleted when the
 # chart is uninstalled due to the presence of finalizers.
-# You can either wait for the deletionTimestamp of each object to expire or perform a manual cleanup.
+# You can either wait for the deletionTimestamp of each object to expire or perform a manual cleanup
 ingressConfigs: []
   # - name: "ingressconfig-example"
   #   labels: {}

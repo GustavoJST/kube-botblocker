@@ -21,9 +21,7 @@ There are two ways to install and manage the kube-botblocker Helm chart:
     helm install kube-botblocker-operator kube-botblocker/kube-botblocker-operator
     ```
 
-2. Use `--set crds.enabled=true` when installing the chart. This will make the chart install and manage the necessary CRDs, aswell as updating it when the chart updates.
-
-   This is not the default as to prevent accidental **data loss**. Read more about it in `crds.enable` in the `values.yaml` table below.
+2. Install only the primary kube-botblocker chart, which will automatically install the necessary CRDs if they don't exist, but not update or remove them if the chart is updated/removed (manual cleanup of CRDs is necessary).
 
 ## Uninstalling
 
@@ -34,15 +32,15 @@ configuration (including IngressConfig objects and configuration inside associat
 
 2. If `.cleanupJob.enabled: false`, run the command below **BEFORE** uninstalling the Helm chart:
 
-    ```bash
     kubectl annotate --all -A kube-botblocker.github.io/ingressConfigName-
-    ```
 
     Confirm all configuration from associated ingresses have been removed and delete any IngressConfig objects left. Then, proceed to chart removal with `helm uninstall`
 
 Not doing the process mentioned above will leave you with dangling IngressConfig objects and ingresses that have kube-botblocker related annotations and configuration **even after the chart is uninstalled**.
 
-Lastly, if `crds.enabled: false`, remove the kube-botblocker CRDs Helm chart.
+Lastly, uninstall the CRD chart. If you instead installed only the primary chart, you'll need to clean up the installed CRDs manually with:
+
+    kubectl delete crd ingressconfigs.kube-botblocker.github.io
 
 {{ template "chart.valuesSection" . }}
 
