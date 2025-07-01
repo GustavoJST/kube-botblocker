@@ -2,7 +2,7 @@ apiVersion: v2
 name: kube-botblocker-operator
 description: Easily configure User-Agent blocks for selected ingresses - ingress-nginx only
 type: application
-version: 0.2.1
+version: 0.2.2
 appVersion: "0.2.0"
 home: https://gustavojst.github.io/kube-botblocker
 sources:
