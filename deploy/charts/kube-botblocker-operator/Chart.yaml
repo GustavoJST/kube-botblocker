@@ -22,10 +22,3 @@ annotations:
   artifacthub.io/links: |
     - name: "Chart source and upstream project"
       url: https://github.com/GustavoJST/kube-botblocker
-
-
-dependencies:
-  - name: kube-botblocker-operator-crds
-    version: "0.2.1"
-    condition: crds.enabled
-    repository: file://../kube-botblocker-operator-crds

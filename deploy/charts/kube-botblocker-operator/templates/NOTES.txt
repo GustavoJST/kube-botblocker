@@ -1,14 +1,4 @@
 kube-botblocker has been successfully deployed! ✨
 
-{{ if not .Values.crds.enabled -}}
-WARNING: crds.enabled set to "false" in values.yaml. This means you must install the kube-botblocker CRDs helm chart separately and manage it yourself.
-Without it, kube-botblocker will not work.
-
-helm install kube-botblocker-operator-crds -n my-namespace-here kube-botblocker/kube-botblocker-operator-crds
-
-You can ignore this message if you already have it installed
-
-{{ end -}}
-
 Check out the docs below on how to get started:
 https://github.com/GustavoJST/kube-botblocker
