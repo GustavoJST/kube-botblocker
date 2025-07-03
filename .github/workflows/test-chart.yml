@@ -45,7 +45,7 @@ jobs:
           helm lint ./deploy/charts/kube-botblocker-operator
 
   test-charts:
-    name: Run on Ubuntu
+    name: Run chart tests
     runs-on: ubuntu-latest
     needs:
       - lint-crds
